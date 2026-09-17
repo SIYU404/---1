@@ -164,6 +164,9 @@ class NPCSystem {
       }
 
       const pos = npc.mesh.position;
+      if (!npc.isDead) {
+        pos.y = 0;
+      }
       const distToPlayer = pos.distanceTo(playerPos);
 
       if (npc.isHostile && camera) {
@@ -260,8 +263,33 @@ class NPCSystem {
         npc.mesh.userData.hpFill.scale.x = hpPercent;
       }
 
-      const knockDir = new THREE.Vector3().subVectors(npc.mesh.position, raycaster.ray.origin).normalize();
-      npc.mesh.position.addScaledVector(knockDir, 1.2);
+      // 水平方向擊退（只在 XZ 平面上推開，避免因玩家由上而下攻擊導致 Y 軸向下陷入地面）
+      const knockDir = new THREE.Vector3(
+        npc.mesh.position.x - raycaster.ray.origin.x,
+        0,
+        npc.mesh.position.z - raycaster.ray.origin.z
+      );
+
+      if (knockDir.lengthSq() > 0.0001) {
+        knockDir.normalize();
+      } else {
+        knockDir.set(raycaster.ray.direction.x, 0, raycaster.ray.direction.z);
+        knockDir.y = 0;
+        if (knockDir.lengthSq() > 0.0001) {
+          knockDir.normalize();
+        } else {
+          knockDir.set(0, 0, 1);
+        }
+      }
+
+      // 被攻擊後後退一步（水平位移 1.1 單位），並強制鎖定地面高度 y = 0
+      npc.mesh.position.x += knockDir.x * 1.1;
+      npc.mesh.position.z += knockDir.z * 1.1;
+      npc.mesh.position.y = 0;
+
+      // 邊界防護
+      npc.mesh.position.x = Math.max(-175, Math.min(175, npc.mesh.position.x));
+      npc.mesh.position.z = Math.max(-235, Math.min(235, npc.mesh.position.z));
 
       if (npc.hp <= 0) {
         this.killNPC(npc);

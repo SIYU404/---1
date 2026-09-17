@@ -12,7 +12,7 @@ class GameState {
 
     this.maxHunger = 100;
     this.hunger = 100;
-    this.hungerDecayRate = 0.55; // 每秒扣除飽足感
+    this.hungerDecayRate = 0.1; // 每秒扣除飽足感 (10秒扣除1%)
 
     this.maxOxygen = 60.0;
     this.oxygen = 60.0;
@@ -20,11 +20,13 @@ class GameState {
 
     // 武器系統
     this.weapons = {
-      fist: { id: 'fist', name: '赤手空拳', icon: '👊', damage: 18, range: 2.8, cooldown: 0.38, type: 'melee', ammo: Infinity },
-      bat: { id: 'bat', name: '棒球棍', icon: '🏏', damage: 42, range: 3.5, cooldown: 0.5, type: 'melee', ammo: Infinity },
-      crowbar: { id: 'crowbar', name: '鋼製鐵撬', icon: '🪓', damage: 48, range: 3.2, cooldown: 0.42, type: 'melee', ammo: Infinity },
-      pistol: { id: 'pistol', name: '9mm 手槍', icon: '🔫', damage: 75, range: 50, cooldown: 0.35, type: 'ranged', ammo: 24 }
+      fist:    { id: 'fist',    name: '赤手空拳',   icon: '👊', damage: 18, range: 2.8, cooldown: 0.38, type: 'melee',  ammo: Infinity },
+      bat:     { id: 'bat',     name: '棒球棍',     icon: '🏏', damage: 42, range: 3.5, cooldown: 0.5,  type: 'melee',  ammo: Infinity },
+      crowbar: { id: 'crowbar', name: '鋼製鐵撬',   icon: '🪓', damage: 48, range: 3.2, cooldown: 0.42, type: 'melee',  ammo: Infinity },
+      pistol:  { id: 'pistol',  name: '9mm 手槍',  icon: '🔫', damage: 75, range: 50,  cooldown: 0.35, type: 'ranged', ammo: 24 }
     };
+    this.weaponOrder = ['fist', 'bat', 'crowbar', 'pistol']; // 切換順序
+    this.ownedWeapons = new Set(['fist']); // 已擁有的武器 (拳頭預設)
     this.currentWeaponId = 'fist';
     this.lastAttackTime = 0;
 
@@ -49,6 +51,7 @@ class GameState {
     this.oxygen = 60.0;
     this.isUnderwater = false;
     this.currentWeaponId = 'fist';
+    this.ownedWeapons = new Set(['fist']);
     this.weapons.pistol.ammo = 18;
     this.survivalTime = 0;
     this.kills = 0;
@@ -66,6 +69,7 @@ class GameState {
   equipWeapon(weaponId, bonusAmmo = 0) {
     if (this.weapons[weaponId]) {
       this.currentWeaponId = weaponId;
+      this.ownedWeapons.add(weaponId); // 記錄已擁有
       if (bonusAmmo > 0 && weaponId === 'pistol') {
         this.weapons.pistol.ammo += bonusAmmo;
       }
@@ -73,6 +77,20 @@ class GameState {
       return true;
     }
     return false;
+  }
+
+  // 滾輪切換武器 (direction: +1 向後, -1 向前)
+  switchWeapon(direction) {
+    if (this.isGameOver) return;
+    const owned = this.weaponOrder.filter(id => this.ownedWeapons.has(id));
+    if (owned.length <= 1) return;
+    const cur = owned.indexOf(this.currentWeaponId);
+    const next = (cur + direction + owned.length) % owned.length;
+    this.currentWeaponId = owned[next];
+    const w = this.weapons[this.currentWeaponId];
+    if (window.uiManager) {
+      window.uiManager.addLog(`🔄 切換武器：${w.icon} ${w.name}`, 'info');
+    }
   }
 
   // 治療/補血方法

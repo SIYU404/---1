@@ -11,7 +11,9 @@ class FirstPersonControls {
     this.gameState = gameState;
 
     this.isLocked = false;
-    this.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 900);
+    const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    this.isTouchDevice = isMobileUA;
 
     // 視角旋轉物件
     this.pitchObject = new THREE.Object3D();
@@ -70,6 +72,10 @@ class FirstPersonControls {
 
     // PC 點擊滑鼠左鍵
     this.domElement.addEventListener('mousedown', (e) => {
+      if (!this.isLocked && !this.isTouchDevice && !this.gameState.isGameOver) {
+        this.lock();
+        return;
+      }
       if (this.isLocked && e.button === 0) {
         if (this.onTapWorld) {
           this.onTapWorld(e.clientX, e.clientY);
@@ -107,8 +113,20 @@ class FirstPersonControls {
 
   initTouchControls() {
     const touchControls = document.getElementById('touch-controls');
-    if (this.isTouchDevice && touchControls) {
-      touchControls.style.display = 'block';
+    if (touchControls) {
+      touchControls.style.display = this.isTouchDevice ? 'block' : 'none';
+    }
+
+    const desktopGuide = document.querySelector('.desktop-guide');
+    const mobileGuide = document.querySelector('.mobile-guide');
+    if (desktopGuide && mobileGuide) {
+      if (this.isTouchDevice) {
+        desktopGuide.style.display = 'none';
+        mobileGuide.style.display = 'grid';
+      } else {
+        desktopGuide.style.display = 'grid';
+        mobileGuide.style.display = 'none';
+      }
     }
 
     // 1. 左側虛擬搖桿 (Joystick)
@@ -286,7 +304,7 @@ class FirstPersonControls {
   }
 
   onMouseMove(event) {
-    if (!this.isLocked || this.gameState.isGameOver || this.isTouchDevice) return;
+    if (!this.isLocked || this.gameState.isGameOver) return;
 
     const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
     const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
@@ -302,6 +320,17 @@ class FirstPersonControls {
 
   onKeyDown(event) {
     if (this.gameState.isGameOver) return;
+
+    if (event.code === 'Space' || event.key === ' ') {
+      event.preventDefault();
+      this.triggerJump();
+      return;
+    }
+
+    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight' || event.key === 'Shift') {
+      this.isSprinting = true;
+      return;
+    }
 
     switch (event.code) {
       case 'KeyW':
@@ -320,13 +349,6 @@ class FirstPersonControls {
       case 'ArrowRight':
         this.moveRight = true;
         break;
-      case 'Space':
-        this.triggerJump();
-        break;
-      case 'ShiftLeft':
-      case 'ShiftRight':
-        this.isSprinting = true;
-        break;
       case 'KeyE':
         if (this.onInteractTrigger) this.onInteractTrigger();
         break;
@@ -334,6 +356,11 @@ class FirstPersonControls {
   }
 
   onKeyUp(event) {
+    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight' || event.key === 'Shift') {
+      this.isSprinting = false;
+      return;
+    }
+
     switch (event.code) {
       case 'KeyW':
       case 'ArrowUp':
@@ -350,10 +377,6 @@ class FirstPersonControls {
       case 'KeyD':
       case 'ArrowRight':
         this.moveRight = false;
-        break;
-      case 'ShiftLeft':
-      case 'ShiftRight':
-        this.isSprinting = false;
         break;
     }
   }

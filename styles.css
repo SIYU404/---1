@@ -567,17 +567,17 @@ body, html {
 /* ==========================================================================
    📱 響應式排版 (手機、平板適配)
    ========================================================================== */
-@media (max-width: 900px) or (hover: none) and (pointer: coarse) {
+@media (hover: none) and (pointer: coarse) {
   #touch-controls {
-    display: block !important;
+    display: block;
   }
 
   .desktop-guide {
-    display: none !important;
+    display: none;
   }
 
   .mobile-guide {
-    display: grid !important;
+    display: grid;
   }
 
   #touch-hint-banner {

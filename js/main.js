@@ -100,12 +100,14 @@ window.addEventListener('DOMContentLoaded', () => {
   const gameOverModal = document.getElementById('game-over-modal');
 
   startBtn.addEventListener('click', () => {
+    startBtn.blur();
     controls.lock();
     audioManager.resume();
   });
 
   startBtn.addEventListener('touchend', (e) => {
     e.preventDefault();
+    startBtn.blur();
     controls.lock();
     audioManager.resume();
   });
