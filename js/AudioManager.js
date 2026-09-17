@@ -80,7 +80,6 @@ class AudioManager {
     if (!this.ctx || this.muted) return;
     this.resume();
 
-    // 白色噪音 + 低通濾波
     const bufferSize = this.ctx.sampleRate * 0.4;
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -107,7 +106,7 @@ class AudioManager {
     noise.start();
   }
 
-  // 揮動武器 (拳頭 / 球棒 / 鐵撬)
+  // 揮動武器
   playSwing() {
     if (!this.ctx || this.muted) return;
     this.resume();
@@ -182,7 +181,29 @@ class AudioManager {
     noise.start();
   }
 
-  // 吃東西 / 喝水
+  // 治療/補血音效 (清脆向上的恢復三和弦)
+  playHeal() {
+    if (!this.ctx || this.muted) return;
+    this.resume();
+
+    const freqs = [440, 554.37, 659.25, 880]; // A major arpeggio
+    freqs.forEach((freq, idx) => {
+      setTimeout(() => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.28);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.28);
+      }, idx * 60);
+    });
+  }
+
+  // 吃東西
   playEat() {
     if (!this.ctx || this.muted) return;
     this.resume();
@@ -215,9 +236,9 @@ class AudioManager {
     const gain = this.ctx.createGain();
 
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
-    osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.08); // E5
-    osc.frequency.setValueAtTime(783.99, this.ctx.currentTime + 0.16); // G5
+    osc.frequency.setValueAtTime(523.25, this.ctx.currentTime);
+    osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.08);
+    osc.frequency.setValueAtTime(783.99, this.ctx.currentTime + 0.16);
 
     gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);

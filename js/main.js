@@ -1,6 +1,6 @@
 /**
  * main.js
- * 遊戲主循環、Three.js 渲染管線初始化與全域生命週期協調 (支援 PC 與 行動/平板端)
+ * 遊戲主循環、Three.js 渲染管線初始化與全域生命週期協調 (支援直覺點擊人物攻擊/點擊物品拾取)
  */
 window.addEventListener('DOMContentLoaded', () => {
   // 1. 初始化 Web Audio 音效
@@ -38,7 +38,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 6. 初始化物資搜刮系統
   const itemSystem = new ItemSystem(scene, gameState, audioManager);
-  itemSystem.initSpawns(cityBuilder.lootSpawnPoints);
+  itemSystem.initSpawns(cityBuilder.lootSpawnPoints, cityBuilder.indoorLootPoints);
 
   // 7. 初始化 NPC 行人與危險暴徒系統
   const npcSystem = new NPCSystem(scene, gameState, audioManager, itemSystem);
@@ -49,10 +49,40 @@ window.addEventListener('DOMContentLoaded', () => {
   // 9. 初始化第一人稱武器與戰鬥系統
   const weaponSystem = new WeaponSystem(camera, scene, gameState, audioManager, npcSystem);
 
-  // 10. 綁定行動端按鈕回調
+  // 10. 綁定「點擊人物即攻擊、點擊物品即拾取」直覺互動回調
+  controls.onTapWorld = (clientX, clientY) => {
+    if (gameState.isGameOver) return;
+
+    const ndcX = (clientX / window.innerWidth) * 2 - 1;
+    const ndcY = -(clientY / window.innerHeight) * 2 + 1;
+
+    const tapRay = new THREE.Raycaster();
+    tapRay.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+
+    // 1. 優先檢測是否直接點擊到物品 (食物、醫療繃帶、急救箱、武器)
+    let clickedItem = null;
+    let minItemDist = 12.0; // 點擊拾取感應半徑 12m
+    itemSystem.items.forEach(it => {
+      const hits = tapRay.intersectObjects(it.mesh.children, true);
+      if (hits.length > 0 && hits[0].distance < minItemDist) {
+        minItemDist = hits[0].distance;
+        clickedItem = it;
+      }
+    });
+
+    if (clickedItem) {
+      itemSystem.pickupItem(clickedItem);
+      return;
+    }
+
+    // 2. 點擊到人物或空間發動定向攻擊
+    weaponSystem.performAttack(tapRay);
+  };
+
   controls.onAttackTrigger = () => {
     weaponSystem.performAttack();
   };
+
   controls.onInteractTrigger = () => {
     if (itemSystem.currentNearbyItem) {
       itemSystem.pickupItem(itemSystem.currentNearbyItem);
@@ -74,7 +104,6 @@ window.addEventListener('DOMContentLoaded', () => {
     audioManager.resume();
   });
 
-  // 行動端支援直接點擊開始按鈕
   startBtn.addEventListener('touchend', (e) => {
     e.preventDefault();
     controls.lock();
@@ -82,15 +111,12 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   restartBtn.addEventListener('click', () => {
-    // 重置遊戲數值
     gameState.reset();
     gameOverModal.style.display = 'none';
 
-    // 重設玩家位置
     controls.getObject().position.set(-62, 1.7, -35);
     controls.velocity.set(0, 0, 0);
 
-    // 重新鎖定滑鼠/開啟控制
     controls.lock();
     audioManager.resume();
 
@@ -114,10 +140,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const time = clock.getElapsedTime();
 
     if (!gameState.isGameOver) {
-      // 更新生理指標 (飽足感衰減、水下閉氣倒數)
       gameState.update(delta);
-
-      // 更新玩家移動與物理
       controls.update(delta);
 
       const playerPos = controls.getObject().position;
@@ -125,22 +148,11 @@ window.addEventListener('DOMContentLoaded', () => {
       const isMoving = controls.moveForward || controls.moveBackward || controls.moveLeft || controls.moveRight ||
                        Math.abs(controls.joystickVector.x) > 0.1 || Math.abs(controls.joystickVector.z) > 0.1;
 
-      // 更新武器動畫
       weaponSystem.update(delta, isMoving);
-
-      // 更新都市環境水波
       cityBuilder.update(time);
-
-      // 更新車輛交通
       trafficSystem.update(delta, playerPos);
-
-      // 更新路人與暴徒 AI
       npcSystem.update(delta, playerPos, camera);
-
-      // 更新地面道具
       itemSystem.update(delta, playerPos);
-
-      // 更新 HUD 與雷達小地圖
       uiManager.update(playerPos, playerYaw, trafficSystem, npcSystem, itemSystem);
     }
 

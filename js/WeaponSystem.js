@@ -1,6 +1,7 @@
 /**
  * WeaponSystem.js
  * 第一人稱手部/武器視角模型渲染、攻擊揮擊與射擊動畫、命中判定與打擊火花
+ * 支援中央準星攻擊與螢幕直接點選目標發動攻擊
  */
 class WeaponSystem {
   constructor(camera, scene, gameState, audioManager, npcSystem) {
@@ -29,7 +30,6 @@ class WeaponSystem {
     this.muzzleTimer = 0;
 
     this.createWeaponModels();
-    this.bindEvents();
   }
 
   createWeaponModels() {
@@ -113,15 +113,7 @@ class WeaponSystem {
     this.currentModel = this.weaponMeshes[activeId] || this.weaponMeshes.fist;
   }
 
-  bindEvents() {
-    window.addEventListener('mousedown', (e) => {
-      if (e.button === 0 && document.pointerLockElement) {
-        this.performAttack();
-      }
-    });
-  }
-
-  performAttack() {
+  performAttack(customRaycaster = null) {
     if (this.isAttacking || this.gameState.isGameOver) return;
 
     const weapon = this.gameState.getCurrentWeapon();
@@ -133,14 +125,12 @@ class WeaponSystem {
     // 槍械子彈檢查
     if (weapon.type === 'ranged') {
       if (weapon.ammo <= 0) {
-        // 無子彈點擊聲
         if (this.audio) this.audio.playFootstep();
         return;
       }
       weapon.ammo--;
       if (this.audio) this.audio.playGunfire();
 
-      // 觸發槍火
       if (this.muzzleFlash) {
         this.muzzleFlash.visible = true;
         this.muzzleTimer = 0.08;
@@ -153,26 +143,28 @@ class WeaponSystem {
     this.attackProgress = 0;
     this.attackDuration = weapon.cooldown * 0.7;
 
-    // 命中檢測
-    this.executeHitCheck(weapon);
+    // 執行命中判定
+    this.executeHitCheck(weapon, customRaycaster);
   }
 
-  executeHitCheck(weapon) {
-    const raycaster = new THREE.Raycaster();
-    // 從相機中心射出
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+  executeHitCheck(weapon, customRaycaster = null) {
+    let raycaster = customRaycaster;
+    if (!raycaster) {
+      raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+    }
 
-    // 取得所有敵對與路人 NPC
+    // 檢測是否命中 NPC
     const hitTarget = this.npcSystem.checkHit(raycaster, weapon.range, weapon.damage);
 
     if (hitTarget) {
       if (this.audio) this.audio.playHit();
 
-      // 準星命中反饋
+      // 準星命中反饋紅光
       const crosshair = document.getElementById('crosshair');
       if (crosshair) {
         crosshair.classList.add('crosshair-hit');
-        setTimeout(() => crosshair.classList.remove('crosshair-hit'), 120);
+        setTimeout(() => crosshair.classList.remove('crosshair-hit'), 140);
       }
     }
   }
@@ -180,7 +172,6 @@ class WeaponSystem {
   update(delta, isMoving) {
     this.updateActiveWeaponModel();
 
-    // 槍口閃光倒數
     if (this.muzzleTimer > 0) {
       this.muzzleTimer -= delta;
       if (this.muzzleTimer <= 0 && this.muzzleFlash) {
@@ -188,7 +179,7 @@ class WeaponSystem {
       }
     }
 
-    // 走路晃動 (Bobbing)
+    // 走路晃動
     if (isMoving && !this.isAttacking) {
       this.bobbingTimer += delta * 12;
       this.weaponRoot.position.x = Math.sin(this.bobbingTimer * 0.5) * 0.015;
@@ -209,13 +200,11 @@ class WeaponSystem {
       } else {
         const weapon = this.gameState.getCurrentWeapon();
         if (weapon.type === 'melee') {
-          // 近戰揮舞：快速向前下方下劈揮砍
           const swing = Math.sin(progress * Math.PI);
           this.weaponRoot.rotation.x = swing * 0.45;
           this.weaponRoot.rotation.y = -swing * 0.35;
           this.weaponRoot.position.z = swing * 0.12;
         } else {
-          // 槍枝後座力：向後仰震動
           const recoil = Math.sin(progress * Math.PI);
           this.weaponRoot.rotation.x = recoil * 0.3;
           this.weaponRoot.position.z = recoil * 0.08;

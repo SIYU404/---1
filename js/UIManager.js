@@ -143,15 +143,21 @@ class UIManager {
       });
     }
 
-    // 繪製食物/武器 (綠/藍點)
+    // 繪製物資 (醫療: 綠色, 食物: 橙黃, 武器: 青藍)
     if (itemSystem) {
       itemSystem.getItemPositions().forEach(item => {
         const dx = (item.pos.x - playerPos.x) * scale;
         const dz = (item.pos.z - playerPos.z) * scale;
         if (Math.hypot(dx, dz) < w / 2) {
-          ctx.fillStyle = item.isFood ? '#10b981' : '#38bdf8';
+          if (item.isMed) {
+            ctx.fillStyle = '#10b981'; // 醫療綠
+          } else if (item.isFood) {
+            ctx.fillStyle = '#f59e0b'; // 食物橙
+          } else {
+            ctx.fillStyle = '#38bdf8'; // 武器青
+          }
           ctx.beginPath();
-          ctx.arc(cx + dx, cy + dz, 2.8, 0, Math.PI * 2);
+          ctx.arc(cx + dx, cy + dz, 3.2, 0, Math.PI * 2);
           ctx.fill();
         }
       });

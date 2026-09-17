@@ -1,6 +1,6 @@
 /**
  * GameState.js
- * 核心遊戲狀態管理模組，統籌生理指標、武器清單、傷害判定與生存計時
+ * 核心遊戲狀態管理模組：支援生理指標、治療補血、擊殺吸血回復、武器清單與生存計時
  */
 class GameState {
   constructor(audioManager) {
@@ -11,31 +11,32 @@ class GameState {
     this.hp = 100;
 
     this.maxHunger = 100;
-    this.hunger = 100; // 飽足度
-    this.hungerDecayRate = 0.6; // 每秒扣除飽足感
+    this.hunger = 100;
+    this.hungerDecayRate = 0.55; // 每秒扣除飽足感
 
-    this.maxOxygen = 60.0; // 閉氣時間 60 秒
+    this.maxOxygen = 60.0;
     this.oxygen = 60.0;
     this.isUnderwater = false;
 
     // 武器系統
     this.weapons = {
-      fist: { id: 'fist', name: '赤手空拳', icon: '👊', damage: 15, range: 2.8, cooldown: 0.4, type: 'melee', ammo: Infinity },
-      bat: { id: 'bat', name: '棒球棍', icon: '🏏', damage: 38, range: 3.5, cooldown: 0.55, type: 'melee', ammo: Infinity },
-      crowbar: { id: 'crowbar', name: '鋼製鐵撬', icon: '🪓', damage: 45, range: 3.2, cooldown: 0.45, type: 'melee', ammo: Infinity },
-      pistol: { id: 'pistol', name: '9mm 手槍', icon: '🔫', damage: 70, range: 50, cooldown: 0.35, type: 'ranged', ammo: 24 }
+      fist: { id: 'fist', name: '赤手空拳', icon: '👊', damage: 18, range: 2.8, cooldown: 0.38, type: 'melee', ammo: Infinity },
+      bat: { id: 'bat', name: '棒球棍', icon: '🏏', damage: 42, range: 3.5, cooldown: 0.5, type: 'melee', ammo: Infinity },
+      crowbar: { id: 'crowbar', name: '鋼製鐵撬', icon: '🪓', damage: 48, range: 3.2, cooldown: 0.42, type: 'melee', ammo: Infinity },
+      pistol: { id: 'pistol', name: '9mm 手槍', icon: '🔫', damage: 75, range: 50, cooldown: 0.35, type: 'ranged', ammo: 24 }
     };
     this.currentWeaponId = 'fist';
     this.lastAttackTime = 0;
 
     // 統計數據
-    this.survivalTime = 0; // 秒
+    this.survivalTime = 0;
     this.kills = 0;
     this.foodCollected = 0;
+    this.medsUsed = 0;
     this.isGameOver = false;
     this.deathCause = '';
 
-    // 受傷無敵硬直 (避免連續多重碰撞暴斃)
+    // 受傷無敵硬直
     this.invulnerableTimer = 0;
 
     // 飢餓扣血定時器
@@ -52,6 +53,7 @@ class GameState {
     this.survivalTime = 0;
     this.kills = 0;
     this.foodCollected = 0;
+    this.medsUsed = 0;
     this.isGameOver = false;
     this.deathCause = '';
     this.invulnerableTimer = 0;
@@ -73,10 +75,51 @@ class GameState {
     return false;
   }
 
+  // 治療/補血方法
+  heal(amount, sourceName = '醫療用品') {
+    if (this.isGameOver) return;
+    const oldHp = this.hp;
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+    const recovered = Math.round(this.hp - oldHp);
+
+    if (this.audio) this.audio.playHeal();
+    this.medsUsed++;
+
+    // 觸發綠色治癒光芒特效
+    const healOverlay = document.getElementById('heal-overlay');
+    if (healOverlay) {
+      healOverlay.style.opacity = '1';
+      setTimeout(() => {
+        healOverlay.style.opacity = '0';
+      }, 200);
+    }
+
+    if (window.uiManager) {
+      window.uiManager.addLog(`💖 ${sourceName} 恢復了 ${recovered} HP (目前: ${Math.round(this.hp)}/100)`, 'success');
+    }
+  }
+
+  // 擊敗暴徒擊殺回血獎勵
+  onEnemyKilled() {
+    this.kills++;
+    const killHealAmount = 18;
+    const oldHp = this.hp;
+    this.hp = Math.min(this.maxHp, this.hp + killHealAmount);
+    const recovered = Math.round(this.hp - oldHp);
+
+    if (this.audio) this.audio.playHeal();
+
+    if (window.uiManager) {
+      window.uiManager.addLog(`⚔️ 擊倒暴徒！獲得戰鬥吸血 +${recovered} HP！`, 'success');
+    }
+  }
+
   eatFood(food) {
     if (this.isGameOver) return;
     this.hunger = Math.min(this.maxHunger, this.hunger + (food.hunger || 25));
-    this.hp = Math.min(this.maxHp, this.hp + (food.heal || 10));
+    if (food.heal && food.heal > 0) {
+      this.hp = Math.min(this.maxHp, this.hp + food.heal);
+    }
     this.foodCollected++;
     if (this.audio) this.audio.playEat();
   }
@@ -85,11 +128,10 @@ class GameState {
     if (this.isGameOver || this.invulnerableTimer > 0) return false;
 
     this.hp -= amount;
-    this.invulnerableTimer = 0.35; // 0.35秒無敵間隔
+    this.invulnerableTimer = 0.35;
 
     if (this.audio) this.audio.playHurt();
 
-    // 觸發受傷紅屏閃爍
     const overlay = document.getElementById('damage-overlay');
     if (overlay) {
       overlay.style.opacity = '1';
@@ -111,7 +153,6 @@ class GameState {
     this.deathCause = cause;
     if (this.audio) this.audio.playGameOver();
 
-    // 解除指針鎖定並彈出 Game Over
     if (document.exitPointerLock) {
       document.exitPointerLock();
     }
@@ -127,7 +168,7 @@ class GameState {
       statsBox.innerHTML = `
         存活時間：<strong>${minutes}分 ${seconds < 10 ? '0' : ''}${seconds}秒</strong><br>
         擊敗危險暴徒：<strong>${this.kills} 人</strong><br>
-        搜刮食物物資：<strong>${this.foodCollected} 份</strong>
+        搜刮食物與醫療：<strong>${this.foodCollected + this.medsUsed} 份</strong>
       `;
     }
     if (modal) modal.style.display = 'flex';
@@ -142,12 +183,12 @@ class GameState {
       this.invulnerableTimer -= delta;
     }
 
-    // 1. 飽足感消耗與飢餓扣血
+    // 飽足感消耗與飢餓扣血
     this.hunger -= this.hungerDecayRate * delta;
     if (this.hunger <= 0) {
       this.hunger = 0;
       this.starveDamageTimer += delta;
-      if (this.starveDamageTimer >= 1.5) { // 每 1.5 秒餓扣 6 HP
+      if (this.starveDamageTimer >= 1.5) {
         this.starveDamageTimer = 0;
         this.takeDamage(6, '極度飢餓，體力不支餓死');
       }
@@ -155,16 +196,14 @@ class GameState {
       this.starveDamageTimer = 0;
     }
 
-    // 2. 水中閉氣系統 (限時 60 秒)
+    // 水中閉氣系統
     if (this.isUnderwater) {
       this.oxygen -= delta;
       if (this.oxygen <= 0) {
         this.oxygen = 0;
-        // 溺水每秒扣除 18 HP
         this.takeDamage(18 * delta, '水下閉氣超過 60 秒溺斃');
       }
     } else {
-      // 浮出水面快速回氧 (每秒恢復 25 秒)
       if (this.oxygen < this.maxOxygen) {
         this.oxygen = Math.min(this.maxOxygen, this.oxygen + 25 * delta);
       }

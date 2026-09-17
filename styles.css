@@ -130,6 +130,30 @@ body, html {
   pointer-events: none;
 }
 
+/* 頂部直覺操作提示 Banner */
+#touch-hint-banner {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(0, 242, 254, 0.4);
+  padding: 6px 18px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #e0f2fe;
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.25);
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  animation: pulseGlow 2.5s infinite alternate;
+}
+
+@keyframes pulseGlow {
+  0% { border-color: rgba(0, 242, 254, 0.3); box-shadow: 0 0 8px rgba(0, 242, 254, 0.15); }
+  100% { border-color: rgba(0, 242, 254, 0.7); box-shadow: 0 0 18px rgba(0, 242, 254, 0.4); }
+}
+
 /* 準心 */
 #crosshair-container {
   position: absolute;
@@ -162,13 +186,13 @@ body, html {
   background-color: #ff1744;
 }
 
-/* 互動拾取提示 */
+/* 互動拾取提示 (點擊即拾取) */
 #interact-prompt {
   position: absolute;
   top: 56%;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.88);
+  background: rgba(15, 23, 42, 0.9);
   border: 1px solid #00f2fe;
   padding: 8px 18px;
   border-radius: 20px;
@@ -179,6 +203,8 @@ body, html {
   box-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
   letter-spacing: 0.5px;
   white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 #interact-prompt span.key {
@@ -368,10 +394,24 @@ body, html {
   z-index: 6;
 }
 
+/* 補血治癒綠芒濾鏡 */
+#heal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, transparent 40%, rgba(16, 185, 129, 0.65) 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  z-index: 6;
+}
+
 /* 事件日誌 */
 #event-log {
   position: absolute;
-  top: 20px;
+  top: 50px;
   left: 24px;
   display: flex;
   flex-direction: column;
@@ -415,7 +455,7 @@ body, html {
 }
 
 /* ==========================================================================
-   📱 觸控控制器 / 螢幕虛擬滑桿搖桿 (Touch Controls)
+   📱 簡約觸控控制器 (Touch Controls)
    ========================================================================== */
 #touch-controls {
   position: absolute;
@@ -424,11 +464,11 @@ body, html {
   width: 100%;
   height: 100%;
   z-index: 50;
-  pointer-events: none; /* 內部按鍵與搖桿區才開啟 pointer-events */
-  display: none; /* 由 JS 依觸控能力或螢幕寬度自動開啟 */
+  pointer-events: none;
+  display: none;
 }
 
-/* 左側：前後左右虛擬搖桿 / 滑桿區域 */
+/* 左側：前後左右虛擬滑桿搖桿 */
 #joystick-zone {
   position: absolute;
   bottom: 24px;
@@ -469,35 +509,35 @@ body, html {
   transition: transform 0.05s ease-out;
 }
 
-/* 右側：滑動旋轉視角觸控板 */
+/* 右側：滑動視角 + 點擊人物/物品直接互動區 */
 #touch-look-zone {
   position: absolute;
   top: 0;
   right: 0;
-  width: 55%;
-  height: 75%;
+  width: 60%;
+  height: 80%;
   pointer-events: auto;
   touch-action: none;
 }
 
-/* 右下角：動作按鈕組 (攻擊、跳躍、拾取、奔跑) */
+/* 右側精簡輔助按鈕 (跳躍 & 奔跑) */
 #touch-action-buttons {
   position: absolute;
-  bottom: 24px;
-  right: 24px;
-  display: grid;
-  grid-template-columns: repeat(2, 62px);
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   pointer-events: auto;
   touch-action: none;
 }
 
 .touch-btn {
-  width: 62px;
-  height: 62px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -512,22 +552,10 @@ body, html {
   filter: brightness(1.3);
 }
 
-.touch-btn-attack {
-  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-  border-color: #fca5a5;
-  box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
-}
-
 .touch-btn-jump {
   background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   border-color: #7dd3fc;
   box-shadow: 0 0 15px rgba(2, 132, 199, 0.6);
-}
-
-.touch-btn-interact {
-  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
-  border-color: #6ee7b7;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
 }
 
 .touch-btn-sprint {
@@ -537,7 +565,7 @@ body, html {
 }
 
 /* ==========================================================================
-   📱 響應式介面調整 (手機、平板直向與橫向適配)
+   📱 響應式排版 (手機、平板適配)
    ========================================================================== */
 @media (max-width: 900px) or (hover: none) and (pointer: coarse) {
   #touch-controls {
@@ -552,14 +580,21 @@ body, html {
     display: grid !important;
   }
 
-  /* 調整左下狀態條至頂部左側，避開左側搖桿 */
+  #touch-hint-banner {
+    font-size: 0.74rem;
+    padding: 4px 12px;
+    top: 65px;
+    max-width: 90%;
+    text-align: center;
+  }
+
   #status-bars {
     top: 14px;
     bottom: auto;
     left: 14px;
     padding: 8px 12px;
     min-width: 170px;
-    gap: 6px;
+    gap: 5px;
     background: rgba(11, 15, 25, 0.85);
   }
 
@@ -571,49 +606,46 @@ body, html {
     height: 8px;
   }
 
-  /* 調整右上小地圖大小 */
   #radar-container {
     top: 14px;
     right: 14px;
-    width: 90px;
-    height: 90px;
+    width: 88px;
+    height: 88px;
   }
 
-  /* 事件日誌往中間移動 */
   #event-log {
-    top: 130px;
+    top: 110px;
     left: 14px;
-    max-width: 220px;
+    max-width: 200px;
   }
 
-  /* 武器欄移至中下方或更小 */
   #weapon-hud {
     bottom: auto;
     top: 14px;
-    right: 114px;
-    padding: 6px 12px;
+    right: 110px;
+    padding: 6px 10px;
     gap: 8px;
-    min-width: 140px;
+    min-width: 130px;
   }
 
   #weapon-icon {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
   }
 
   #weapon-name {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
   }
 
   #ammo-count {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
   }
 
   #instructions-box {
-    padding: 20px 24px;
+    padding: 18px 20px;
   }
 
   #instructions-box h1 {
-    font-size: 1.5rem;
+    font-size: 1.45rem;
   }
 }
 

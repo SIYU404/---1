@@ -1,27 +1,29 @@
 /**
  * CityBuilder.js
- * 3D 現代都市地圖生成器：嚴謹劃分建築區塊、道路、人行道與中央運河，確保走道寬敞暢通無穿模阻擋
+ * 3D 現代都市地圖生成器：包含可進入的室內建築（24H便利店、都市藥局診所、拉麵館、安全屋）、高樓大廈、運河大橋與精緻室內擺設
  */
 class CityBuilder {
   constructor(scene) {
     this.scene = scene;
     this.collisionBoxes = [];
     this.lootSpawnPoints = [];
+    this.indoorLootPoints = [];
     this.roadSegments = [];
     this.pedestrianPaths = [];
+    this.enterableBuildings = [];
     this.waterMesh = null;
   }
 
   build() {
     this.createGroundAndRoads();
     this.createCanalAndBridges();
+    this.createEnterableBuildings(); // 可進入的室內特色建築
     this.createCityBuildings();
     this.createStreetProps();
     this.createAtmosphere();
   }
 
   createGroundAndRoads() {
-    // 基礎地面
     const groundGeo = new THREE.PlaneGeometry(420, 520);
     const groundMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -35,17 +37,15 @@ class CityBuilder {
     const zebraMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const sidewalkMat = new THREE.MeshLambertMaterial({ color: 0x475569 });
 
-    // 南北向大道 (X = -62, X = 62, X = -122, X = 122)，車道寬度 14 米
+    // 南北向大道 (X = -62, X = 62, X = -122, X = 122)
     const mainRoadXs = [-62, 62, -122, 122];
     mainRoadXs.forEach(rx => {
-      // 馬路路面
       const road = new THREE.Mesh(new THREE.PlaneGeometry(14, 480), roadMat);
       road.rotation.x = -Math.PI / 2;
       road.position.set(rx, 0.02, 0);
       road.receiveShadow = true;
       this.scene.add(road);
 
-      // 車道中央黃色虛線
       for (let z = -230; z <= 230; z += 12) {
         const line = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 6), lineMat);
         line.rotation.x = -Math.PI / 2;
@@ -53,7 +53,6 @@ class CityBuilder {
         this.scene.add(line);
       }
 
-      // 人行道 (寬 3.5 米)
       [-8.75, 8.75].forEach(offsetX => {
         const sw = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.2, 480), sidewalkMat);
         sw.position.set(rx + offsetX, 0.1, 0);
@@ -64,7 +63,7 @@ class CityBuilder {
       this.roadSegments.push({ x: rx, zMin: -230, zMax: 230, dir: 'Z' });
     });
 
-    // 東西向街道 (Z = -140, Z = -70, Z = 0, Z = 70, Z = 140)，寬度 14 米
+    // 東西向街道 (Z = -140, Z = -70, Z = 0, Z = 70, Z = 140)
     const crossRoadZs = [-140, -70, 0, 70, 140];
     crossRoadZs.forEach(rz => {
       const crossRoad = new THREE.Mesh(new THREE.PlaneGeometry(380, 14), roadMat);
@@ -73,7 +72,6 @@ class CityBuilder {
       crossRoad.receiveShadow = true;
       this.scene.add(crossRoad);
 
-      // 斑馬線
       mainRoadXs.forEach(rx => {
         for (let i = -5; i <= 5; i += 1.6) {
           const stripe1 = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 3.5), zebraMat);
@@ -93,7 +91,6 @@ class CityBuilder {
   }
 
   createCanalAndBridges() {
-    // 運河水面 (X: -11 ~ 11, Z: -250 ~ 250)
     const waterGeo = new THREE.PlaneGeometry(22, 490, 20, 30);
     const waterMat = new THREE.MeshStandardMaterial({
       color: 0x0284c7,
@@ -107,18 +104,15 @@ class CityBuilder {
     this.waterMesh.position.set(0, 0.1, 0);
     this.scene.add(this.waterMesh);
 
-    // 運河護岸石壁與河畔步道
     const canalWallMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
     const promenadeMat = new THREE.MeshLambertMaterial({ color: 0x64748b });
 
     [-11.5, 11.5].forEach(xPos => {
-      // 堤岸石壁
       const wall = new THREE.Mesh(new THREE.BoxGeometry(1.2, 4.5, 490), canalWallMat);
       wall.position.set(xPos, -1.8, 0);
       wall.receiveShadow = true;
       this.scene.add(wall);
 
-      // 河畔散步大道 (寬 6 米)
       const promX = xPos > 0 ? xPos + 3.8 : xPos - 3.8;
       const prom = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.2, 490), promenadeMat);
       prom.position.set(promX, 0.1, 0);
@@ -126,7 +120,6 @@ class CityBuilder {
       this.scene.add(prom);
     });
 
-    // 跨河大橋 (連接東西城區)
     const bridgeZs = [-140, -70, 0, 70, 140];
     const bridgeMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
     const archMat = new THREE.MeshLambertMaterial({ color: 0x0284c7 });
@@ -145,7 +138,6 @@ class CityBuilder {
         this.scene.add(ramp);
       });
 
-      // 裝飾拱門
       const arch = new THREE.Mesh(new THREE.TorusGeometry(7, 0.3, 8, 24, Math.PI), archMat);
       arch.position.set(0, 1.6, bz - 6.5);
       this.scene.add(arch);
@@ -154,7 +146,6 @@ class CityBuilder {
       arch2.position.set(0, 1.6, bz + 6.5);
       this.scene.add(arch2);
 
-      // 爬梯
       const ladder = new THREE.Mesh(new THREE.BoxGeometry(1.8, 4, 0.3), new THREE.MeshLambertMaterial({ color: 0xf59e0b }));
       ladder.position.set(-10.8, -0.5, bz + 8);
       this.scene.add(ladder);
@@ -162,12 +153,263 @@ class CityBuilder {
     });
   }
 
+  // 建立可進入的室內特色建築
+  createEnterableBuildings() {
+    const floorMat = new THREE.MeshLambertMaterial({ color: 0xe2e8f0 });
+    const wallMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+    const clinicWallMat = new THREE.MeshLambertMaterial({ color: 0xf8fafc });
+    const woodCounterMat = new THREE.MeshLambertMaterial({ color: 0x92400e });
+    const shelfMat = new THREE.MeshLambertMaterial({ color: 0x0284c7 });
+
+    // ==========================================
+    // 1. 24H 賽博便利超商 (24H Cyber Mart)
+    // 位於 X: -34, Z: -35 (寬 14m, 深 16m, 高 4.5m)
+    // ==========================================
+    const martX = -34, martZ = -35;
+    this.createHollowBuilding({
+      name: '24H 便利超商',
+      centerX: martX,
+      centerZ: martZ,
+      width: 14,
+      depth: 16,
+      height: 4.5,
+      floorColor: 0x38bdf8,
+      wallColor: 0x1e293b,
+      entranceSide: 'north', // 門開在 Z- 方向 (面向街道)
+      doorWidth: 5
+    });
+
+    // 超商招牌
+    this.createNeonSign('🏪 24H CONVENIENCE MART', 0x38bdf8, martX, 4.8, martZ - 8.2, 0);
+
+    // 超商室內貨架與收銀台
+    const counter1 = new THREE.Mesh(new THREE.BoxGeometry(4, 1.1, 1.2), woodCounterMat);
+    counter1.position.set(martX - 3.5, 0.55, martZ - 3);
+    this.scene.add(counter1);
+    this.collisionBoxes.push(new THREE.Box3().setFromObject(counter1));
+
+    // 貨架 1 & 2
+    for (let s = -2; s <= 2; s += 4) {
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(6.5, 2.2, 1.0), shelfMat);
+      shelf.position.set(martX + 2, 1.1, martZ + s);
+      this.scene.add(shelf);
+      this.collisionBoxes.push(new THREE.Box3().setFromObject(shelf));
+    }
+
+    // 超商室內燈光
+    const martLight = new THREE.PointLight(0xffffff, 1.2, 18);
+    martLight.position.set(martX, 3.8, martZ);
+    this.scene.add(martLight);
+
+    // 超商室內物資 (大量食物與繃帶)
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(martX - 3.5, 1.2, martZ - 3), type: 'food' });
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(martX + 2, 1.3, martZ - 2), type: 'med' });
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(martX + 2, 1.3, martZ + 2), type: 'food' });
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(martX, 0.8, martZ + 5), type: 'med' });
+
+    // ==========================================
+    // 2. 都市急救診所 / 藥局 (City Clinic & Pharmacy)
+    // 位於 X: 34, Z: 35
+    // ==========================================
+    const clinicX = 34, clinicZ = 35;
+    this.createHollowBuilding({
+      name: '都市急救診所',
+      centerX: clinicX,
+      centerZ: clinicZ,
+      width: 14,
+      depth: 16,
+      height: 4.5,
+      floorColor: 0x10b981,
+      wallColor: 0x0f172a,
+      entranceSide: 'south', // 門開在 Z+ 方向
+      doorWidth: 5
+    });
+
+    this.createNeonSign('🏥 CITY CLINIC & PHARMACY', 0x10b981, clinicX, 4.8, clinicZ + 8.2, Math.PI);
+
+    // 藥局櫃檯與病床
+    const clinicCounter = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.1, 1.2), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+    clinicCounter.position.set(clinicX + 3.2, 0.55, clinicZ + 3);
+    this.scene.add(clinicCounter);
+    this.collisionBoxes.push(new THREE.Box3().setFromObject(clinicCounter));
+
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.8, 5), new THREE.MeshLambertMaterial({ color: 0x38bdf8 }));
+    bed.position.set(clinicX - 3.5, 0.4, clinicZ - 2);
+    this.scene.add(bed);
+    this.collisionBoxes.push(new THREE.Box3().setFromObject(bed));
+
+    const clinicLight = new THREE.PointLight(0xecfdf5, 1.3, 18);
+    clinicLight.position.set(clinicX, 3.8, clinicZ);
+    this.scene.add(clinicLight);
+
+    // 診所內豐富的專業醫療物資
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(clinicX + 3.2, 1.2, clinicZ + 3), type: 'med_large' });
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(clinicX - 3.5, 0.9, clinicZ - 2), type: 'med' });
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(clinicX, 0.8, clinicZ - 4), type: 'med' });
+
+    // ==========================================
+    // 3. 深夜熱騰騰拉麵屋 (Midnight Ramen Diner)
+    // 位於 X: -34, Z: 35
+    // ==========================================
+    const ramenX = -34, ramenZ = 35;
+    this.createHollowBuilding({
+      name: '深夜拉麵屋',
+      centerX: ramenX,
+      centerZ: ramenZ,
+      width: 14,
+      depth: 16,
+      height: 4.5,
+      floorColor: 0x78350f,
+      wallColor: 0x1c1917,
+      entranceSide: 'south',
+      doorWidth: 5
+    });
+
+    this.createNeonSign('🍜 MIDNIGHT RAMEN DINER', 0xf43f5e, ramenX, 4.8, ramenZ + 8.2, Math.PI);
+
+    // 拉麵吧檯
+    const ramenBar = new THREE.Mesh(new THREE.BoxGeometry(8, 1.1, 1.5), woodCounterMat);
+    ramenBar.position.set(ramenX, 0.55, ramenZ - 2);
+    this.scene.add(ramenBar);
+    this.collisionBoxes.push(new THREE.Box3().setFromObject(ramenBar));
+
+    const ramenLight = new THREE.PointLight(0xffedd5, 1.4, 18);
+    ramenLight.position.set(ramenX, 3.6, ramenZ);
+    this.scene.add(ramenLight);
+
+    // 拉麵屋內的高級拉麵食物
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(ramenX - 2, 1.2, ramenZ - 2), type: 'ramen' });
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(ramenX + 2, 1.2, ramenZ - 2), type: 'ramen' });
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(ramenX, 0.8, ramenZ + 3), type: 'food' });
+
+    // ==========================================
+    // 4. 地下避難所 / 武裝安全屋 (Armory Safehouse)
+    // 位於 X: 34, Z: -35
+    // ==========================================
+    const safeX = 34, safeZ = -35;
+    this.createHollowBuilding({
+      name: '軍火安全屋',
+      centerX: safeX,
+      centerZ: safeZ,
+      width: 14,
+      depth: 16,
+      height: 4.5,
+      floorColor: 0x475569,
+      wallColor: 0x0f172a,
+      entranceSide: 'north',
+      doorWidth: 5
+    });
+
+    this.createNeonSign('⚡ ARMED SAFEHOUSE', 0xa855f7, safeX, 4.8, safeZ - 8.2, 0);
+
+    const safeLight = new THREE.PointLight(0xf3e8ff, 1.2, 18);
+    safeLight.position.set(safeX, 3.6, safeZ);
+    this.scene.add(safeLight);
+
+    // 安全屋內的武器、彈藥與急救包
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(safeX - 2, 0.8, safeZ + 2), type: 'weapon' });
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(safeX + 2, 0.8, safeZ + 2), type: 'med_large' });
+    this.indoorLootPoints.push({ pos: new THREE.Vector3(safeX, 0.8, safeZ - 2), type: 'food' });
+
+    // 標記這 4 棟進入式建築物所在區塊，避免一般摩天大樓在此重疊生成
+    this.enterableBuildingBlocks = [
+      { bx: 2, bz: 2 }, // mart
+      { bx: 3, bz: 3 }, // clinic
+      { bx: 2, bz: 3 }, // ramen
+      { bx: 3, bz: 2 }  // safehouse
+    ];
+  }
+
+  // 輔助函式：建立具備開放門口的空心可進入建築
+  createHollowBuilding(config) {
+    const { centerX, centerZ, width, depth, height, floorColor, wallColor, entranceSide, doorWidth } = config;
+    const wallThick = 0.5;
+    const wallMat = new THREE.MeshLambertMaterial({ color: wallColor });
+    const floorMat = new THREE.MeshLambertMaterial({ color: floorColor });
+    const ceilingMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
+
+    // 1. 室內地板
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(width - 0.2, depth - 0.2), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(centerX, 0.05, centerZ);
+    floor.receiveShadow = true;
+    this.scene.add(floor);
+
+    // 2. 天花板/屋頂
+    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(width, wallThick, depth), ceilingMat);
+    ceiling.position.set(centerX, height, centerZ);
+    this.scene.add(ceiling);
+
+    // 3. 左側牆 (West wall)
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, height, depth), wallMat);
+    leftWall.position.set(centerX - width / 2, height / 2, centerZ);
+    this.scene.add(leftWall);
+    this.collisionBoxes.push(new THREE.Box3().setFromObject(leftWall));
+
+    // 4. 右側牆 (East wall)
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, height, depth), wallMat);
+    rightWall.position.set(centerX + width / 2, height / 2, centerZ);
+    this.scene.add(rightWall);
+    this.collisionBoxes.push(new THREE.Box3().setFromObject(rightWall));
+
+    // 5. 後側牆與帶開口的前側大門牆
+    if (entranceSide === 'north') {
+      // 門在 North (Z - depth/2)，後牆在 South (Z + depth/2)
+      const backWall = new THREE.Mesh(new THREE.BoxGeometry(width, height, wallThick), wallMat);
+      backWall.position.set(centerX, height / 2, centerZ + depth / 2);
+      this.scene.add(backWall);
+      this.collisionBoxes.push(new THREE.Box3().setFromObject(backWall));
+
+      // 前門左右兩側小牆段 (留下中間門洞)
+      const sideWallLen = (width - doorWidth) / 2;
+      const frontLeft = new THREE.Mesh(new THREE.BoxGeometry(sideWallLen, height, wallThick), wallMat);
+      frontLeft.position.set(centerX - width / 2 + sideWallLen / 2, height / 2, centerZ - depth / 2);
+      this.scene.add(frontLeft);
+      this.collisionBoxes.push(new THREE.Box3().setFromObject(frontLeft));
+
+      const frontRight = new THREE.Mesh(new THREE.BoxGeometry(sideWallLen, height, wallThick), wallMat);
+      frontRight.position.set(centerX + width / 2 - sideWallLen / 2, height / 2, centerZ - depth / 2);
+      this.scene.add(frontRight);
+      this.collisionBoxes.push(new THREE.Box3().setFromObject(frontRight));
+    } else {
+      // 門在 South (Z + depth/2)，後牆在 North (Z - depth/2)
+      const backWall = new THREE.Mesh(new THREE.BoxGeometry(width, height, wallThick), wallMat);
+      backWall.position.set(centerX, height / 2, centerZ - depth / 2);
+      this.scene.add(backWall);
+      this.collisionBoxes.push(new THREE.Box3().setFromObject(backWall));
+
+      const sideWallLen = (width - doorWidth) / 2;
+      const frontLeft = new THREE.Mesh(new THREE.BoxGeometry(sideWallLen, height, wallThick), wallMat);
+      frontLeft.position.set(centerX - width / 2 + sideWallLen / 2, height / 2, centerZ + depth / 2);
+      this.scene.add(frontLeft);
+      this.collisionBoxes.push(new THREE.Box3().setFromObject(frontLeft));
+
+      const frontRight = new THREE.Mesh(new THREE.BoxGeometry(sideWallLen, height, wallThick), wallMat);
+      frontRight.position.set(centerX + width / 2 - sideWallLen / 2, height / 2, centerZ + depth / 2);
+      this.scene.add(frontRight);
+      this.collisionBoxes.push(new THREE.Box3().setFromObject(frontRight));
+    }
+  }
+
+  createNeonSign(text, color, x, y, z, rotY) {
+    const signBoard = new THREE.Mesh(
+      new THREE.BoxGeometry(8, 1.5, 0.3),
+      new THREE.MeshLambertMaterial({ color: 0x0f172a })
+    );
+    signBoard.position.set(x, y, z);
+    signBoard.rotation.y = rotY;
+    this.scene.add(signBoard);
+
+    const glow = new THREE.PointLight(color, 1.2, 12);
+    glow.position.set(x, y, z + (rotY === 0 ? -0.6 : 0.6));
+    this.scene.add(glow);
+  }
+
   createCityBuildings() {
     const buildingColors = [0x1e293b, 0x0f172a, 0x334155, 0x1e1e2f, 0x252a34, 0x182c3c];
     const windowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
     const warmWindowMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
 
-    // 嚴格規劃的建築區塊，四周預留充裕人行道空間，絕不佔用馬路
     const blockXRanges = [
       { min: -170, max: -136 },
       { min: -108, max: -76 },
@@ -188,7 +430,15 @@ class CityBuilder {
 
     blockXRanges.forEach((xRange, bxIdx) => {
       blockZRanges.forEach((zRange, bzIdx) => {
-        // 建築本體寬度留出 3 米間距走道
+        // 跳過已建立室內可進入建築的 4 個中央街區
+        const isEnterableSpot = (
+          (bxIdx === 2 && bzIdx === 2) ||
+          (bxIdx === 3 && bzIdx === 3) ||
+          (bxIdx === 2 && bzIdx === 3) ||
+          (bxIdx === 3 && bzIdx === 2)
+        );
+        if (isEnterableSpot) return;
+
         const width = (xRange.max - xRange.min) - 4;
         const depth = (zRange.max - zRange.min) - 4;
         const height = 24 + ((bxIdx * 9 + bzIdx * 17) % 40);
@@ -198,14 +448,12 @@ class CityBuilder {
         const col = buildingColors[(bxIdx + bzIdx) % buildingColors.length];
         const bMat = new THREE.MeshLambertMaterial({ color: col });
 
-        // 主建築體
         const bMesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), bMat);
         bMesh.position.set(centerX, height / 2, centerZ);
         bMesh.castShadow = true;
         bMesh.receiveShadow = true;
         this.scene.add(bMesh);
 
-        // 碰撞箱 (精確吻合建築本體)
         const box = new THREE.Box3().setFromObject(bMesh);
         this.collisionBoxes.push(box);
 
@@ -222,12 +470,12 @@ class CityBuilder {
           }
         }
 
-        // 大樓入口前廳 (可供玩家搜刮避雨)
+        // 大樓入口前廳
         const lobby = new THREE.Mesh(new THREE.BoxGeometry(5, 3.2, 2.5), new THREE.MeshLambertMaterial({ color: 0x0284c7 }));
         lobby.position.set(centerX, 1.6, centerZ + depth / 2 + 1.2);
         this.scene.add(lobby);
 
-        // 刷新物資點 (四周寬敞走道上)
+        // 物資點
         this.lootSpawnPoints.push(new THREE.Vector3(centerX, 0.7, centerZ + depth / 2 + 2.8));
         this.lootSpawnPoints.push(new THREE.Vector3(centerX + width / 2 + 2.0, 0.7, centerZ));
         this.lootSpawnPoints.push(new THREE.Vector3(centerX - width / 2 - 2.0, 0.7, centerZ));
@@ -270,40 +518,18 @@ class CityBuilder {
         this.scene.add(pLight);
       }
     });
-
-    // 霓虹發光看板
-    const neonTexts = [
-      { text: '🍜 RAMEN', col: 0xf43f5e, pos: [-48, 4.5, -58], rot: 0 },
-      { text: '💊 PHARMACY', col: 0x10b981, pos: [48, 4.5, 58], rot: Math.PI },
-      { text: '🍸 NIGHT BAR', col: 0xa855f7, pos: [-48, 5, 16], rot: 0 },
-      { text: '🏪 24H MARKET', col: 0x38bdf8, pos: [48, 4, -38], rot: Math.PI }
-    ];
-
-    neonTexts.forEach(sign => {
-      const signBoard = new THREE.Mesh(
-        new THREE.BoxGeometry(5.5, 1.6, 0.3),
-        new THREE.MeshLambertMaterial({ color: 0x0f172a })
-      );
-      signBoard.position.set(sign.pos[0], sign.pos[1], sign.pos[2]);
-      signBoard.rotation.y = sign.rot;
-      this.scene.add(signBoard);
-
-      const glowLight = new THREE.PointLight(sign.col, 1.2, 12);
-      glowLight.position.set(sign.pos[0], sign.pos[1], sign.pos[2] + (sign.rot === 0 ? 0.8 : -0.8));
-      this.scene.add(glowLight);
-    });
   }
 
   createAtmosphere() {
     this.scene.fog = new THREE.FogExp2(0x0b0f19, 0.007);
 
-    const ambientLight = new THREE.AmbientLight(0x475569, 0.9);
+    const ambientLight = new THREE.AmbientLight(0x475569, 0.95);
     this.scene.add(ambientLight);
 
-    const hemiLight = new THREE.HemisphereLight(0x60a5fa, 0x0f172a, 0.6);
+    const hemiLight = new THREE.HemisphereLight(0x60a5fa, 0x0f172a, 0.65);
     this.scene.add(hemiLight);
 
-    const dirLight = new THREE.DirectionalLight(0x93c5fd, 0.75);
+    const dirLight = new THREE.DirectionalLight(0x93c5fd, 0.8);
     dirLight.position.set(80, 120, 60);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;

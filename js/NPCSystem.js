@@ -1,6 +1,6 @@
 /**
  * NPCSystem.js
- * 行人與敵對暴徒系統：包含路人徘徊、危險暴徒追逐攻擊、頭頂血條、受擊擊退與擊倒掉落物資
+ * 行人與敵對暴徒系統：大幅擴充路人人口 (45+ 位)，支援室內店員/顧客與街頭漫步，擊殺暴徒觸發吸血回血與掉落醫療品
  */
 class NPCSystem {
   constructor(scene, gameState, audioManager, itemSystem) {
@@ -10,81 +10,105 @@ class NPCSystem {
     this.itemSystem = itemSystem;
 
     this.npcs = [];
-    this.maxNPCs = 18;
+    this.maxNPCs = 46; // 大幅增加都市路人數量
 
     this.initNPCs();
   }
 
   initNPCs() {
-    // 預設生成正常路人與危險暴徒
-    for (let i = 0; i < this.maxNPCs; i++) {
-      const isHostile = (i % 2 === 1); // 一半正常路人、一半危險暴徒
+    // 1. 室內特殊 NPC (超商收銀員、拉麵師傅、診所護士、安全屋特工)
+    const indoorNPCs = [
+      { pos: new THREE.Vector3(-37.5, 0, -38), isHostile: false, shirt: 0x38bdf8 }, // 超商收銀員
+      { pos: new THREE.Vector3(-34, 0, 31), isHostile: false, shirt: 0xf43f5e },    // 拉麵師傅
+      { pos: new THREE.Vector3(37, 0, 32), isHostile: false, shirt: 0x10b981 },     // 診所護士
+      { pos: new THREE.Vector3(34, 0, -32), isHostile: false, shirt: 0xa855f7 }     // 安全屋商人
+    ];
+
+    indoorNPCs.forEach(inNpc => {
+      this.spawnNPC(inNpc.isHostile, inNpc.pos, inNpc.shirt);
+    });
+
+    // 2. 街頭廣大行人與巡邏暴徒 (約 70% 正常路人、30% 危險暴徒)
+    for (let i = indoorNPCs.length; i < this.maxNPCs; i++) {
+      const isHostile = (i % 3 === 0);
       this.spawnNPC(isHostile);
     }
   }
 
-  spawnNPC(isHostile = false, spawnPos = null) {
+  spawnNPC(isHostile = false, spawnPos = null, customShirt = null) {
     const group = new THREE.Group();
 
-    // 隨機位置 (人行道或建築物周遭)
     let x, z;
     if (spawnPos) {
       x = spawnPos.x;
       z = spawnPos.z;
     } else {
+      // 分佈在人行道、斑馬線與河畔步道
       const side = Math.random() > 0.5 ? 1 : -1;
-      x = side * (35 + Math.random() * 95);
-      z = -180 + Math.random() * 360;
+      x = side * (16 + Math.random() * 140);
+      z = -210 + Math.random() * 420;
     }
 
-    const skinMat = new THREE.MeshLambertMaterial({ color: 0xfbcfe8 });
-    const shirtColor = isHostile ? 0xdc2626 : (Math.random() > 0.5 ? 0x0284c7 : 0x10b981);
+    const skinTones = [0xfbcfe8, 0xfcd34d, 0xfdba74, 0xe2e8f0];
+    const skinMat = new THREE.MeshLambertMaterial({ color: skinTones[Math.floor(Math.random() * skinTones.length)] });
+
+    const civilianColors = [0x0284c7, 0x10b981, 0x8b5cf6, 0xec4899, 0xf59e0b, 0x06b6d4, 0x64748b, 0xfafafa];
+    const shirtColor = customShirt || (isHostile ? 0xdc2626 : civilianColors[Math.floor(Math.random() * civilianColors.length)]);
     const shirtMat = new THREE.MeshLambertMaterial({ color: shirtColor });
     const pantsMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
 
     // 身體
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.9, 0.4), shirtMat);
-    torso.position.y = 1.15;
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.88, 0.38), shirtMat);
+    torso.position.y = 1.14;
     torso.castShadow = true;
     group.add(torso);
 
     // 頭部
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.45, 0.4), skinMat);
-    head.position.y = 1.85;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.42, 0.38), skinMat);
+    head.position.y = 1.82;
     head.castShadow = true;
     group.add(head);
 
+    // 頭髮/帽子
+    const hairColors = [0x171717, 0x78350f, 0xd97706, 0x52525b];
+    const hair = new THREE.Mesh(
+      new THREE.BoxGeometry(0.4, 0.15, 0.4),
+      new THREE.MeshLambertMaterial({ color: hairColors[Math.floor(Math.random() * hairColors.length)] })
+    );
+    hair.position.y = 2.05;
+    group.add(hair);
+
     // 雙腿
-    const legGeo = new THREE.BoxGeometry(0.24, 0.7, 0.28);
+    const legGeo = new THREE.BoxGeometry(0.22, 0.7, 0.26);
     const legL = new THREE.Mesh(legGeo, pantsMat);
-    legL.position.set(-0.18, 0.35, 0);
+    legL.position.set(-0.17, 0.35, 0);
     group.add(legL);
 
     const legR = new THREE.Mesh(legGeo, pantsMat);
-    legR.position.set(0.18, 0.35, 0);
+    legR.position.set(0.17, 0.35, 0);
     group.add(legR);
 
     // 雙手
-    const armGeo = new THREE.BoxGeometry(0.18, 0.75, 0.2);
+    const armGeo = new THREE.BoxGeometry(0.16, 0.72, 0.18);
     const armL = new THREE.Mesh(armGeo, shirtMat);
-    armL.position.set(-0.42, 1.1, 0);
+    armL.position.set(-0.4, 1.1, 0);
     group.add(armL);
 
     const armR = new THREE.Mesh(armGeo, shirtMat);
-    armR.position.set(0.42, 1.1, 0);
+    armR.position.set(0.4, 1.1, 0);
     group.add(armR);
 
-    // 若為危險暴徒，手上配備武器模型 (球棒或尖刀)
+    // 敵對暴徒配備武器與血條
     if (isHostile) {
       const weaponMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.04, 0.02, 0.8),
+        new THREE.CylinderGeometry(0.035, 0.02, 0.8),
         new THREE.MeshLambertMaterial({ color: 0x78350f })
       );
       weaponMesh.position.set(0.45, 0.9, 0.3);
       weaponMesh.rotation.x = Math.PI / 3;
       group.add(weaponMesh);
 
-      // 頭頂紅名血條底板
+      // 頭頂血條
       const hpBg = new THREE.Mesh(
         new THREE.PlaneGeometry(0.8, 0.12),
         new THREE.MeshBasicMaterial({ color: 0x000000 })
@@ -109,9 +133,9 @@ class NPCSystem {
       isHostile: isHostile,
       hp: isHostile ? 100 : 40,
       maxHp: isHostile ? 100 : 40,
-      state: 'patrol', // patrol, chase, attack, dead
-      patrolTarget: new THREE.Vector3(x + (Math.random() - 0.5) * 30, 0, z + (Math.random() - 0.5) * 30),
-      walkSpeed: isHostile ? 5.5 : 2.5,
+      state: 'patrol',
+      patrolTarget: new THREE.Vector3(x + (Math.random() - 0.5) * 35, 0, z + (Math.random() - 0.5) * 35),
+      walkSpeed: isHostile ? 5.2 : 2.6,
       attackRange: 2.3,
       attackCooldown: 0,
       hitStun: 0,
@@ -134,7 +158,6 @@ class NPCSystem {
 
       npc.animTime += delta * 6;
 
-      // 受擊硬直計時
       if (npc.hitStun > 0) {
         npc.hitStun -= delta;
         continue;
@@ -143,7 +166,6 @@ class NPCSystem {
       const pos = npc.mesh.position;
       const distToPlayer = pos.distanceTo(playerPos);
 
-      // 讓頭頂血條面向相機
       if (npc.isHostile && camera) {
         const hpBar = npc.mesh.userData.hpFill;
         if (hpBar) {
@@ -152,45 +174,37 @@ class NPCSystem {
       }
 
       if (npc.isHostile) {
-        // === 危險暴徒 AI 狀態機 ===
-        if (distToPlayer < 26) {
-          // 進入追擊模式
+        if (distToPlayer < 24) {
           npc.state = 'chase';
           npc.mesh.lookAt(playerPos.x, pos.y, playerPos.z);
 
           if (distToPlayer > npc.attackRange) {
-            // 向玩家奔跑靠近
             const dir = new THREE.Vector3().subVectors(playerPos, pos).normalize();
             pos.x += dir.x * npc.walkSpeed * delta;
             pos.z += dir.z * npc.walkSpeed * delta;
 
-            // 跑步肢體搖擺動畫
             npc.legL.rotation.x = Math.sin(npc.animTime) * 0.7;
             npc.legR.rotation.x = -Math.sin(npc.animTime) * 0.7;
             npc.armL.rotation.x = -Math.sin(npc.animTime) * 0.7;
             npc.armR.rotation.x = Math.sin(npc.animTime) * 0.7;
           } else {
-            // 進入近戰攻擊範圍
             npc.state = 'attack';
             if (npc.attackCooldown > 0) {
               npc.attackCooldown -= delta;
             } else {
-              // 發動揮擊攻擊玩家
               npc.attackCooldown = 1.2;
-              npc.armR.rotation.x = -Math.PI / 2; // 揮砍動作
+              npc.armR.rotation.x = -Math.PI / 2;
               setTimeout(() => {
                 if (!npc.isDead && pos.distanceTo(playerPos) < npc.attackRange + 0.8) {
-                  this.gameState.takeDamage(18, '遭遇街道上的危險暴徒亂拳痛毆致死');
+                  this.gameState.takeDamage(16, '遭遇街道上的危險暴徒亂棍圍毆致死');
                 }
-              }, 200);
+              }, 180);
             }
           }
         } else {
-          // 巡邏模式
           this.handlePatrol(npc, delta);
         }
       } else {
-        // === 正常路人：悠閒漫步 ===
         this.handlePatrol(npc, delta);
       }
     }
@@ -202,30 +216,26 @@ class NPCSystem {
 
     const dist = pos.distanceTo(target);
     if (dist < 2.0) {
-      // 隨機選擇下一個巡邏路徑點
       target.set(
         pos.x + (Math.random() - 0.5) * 35,
         0,
         pos.z + (Math.random() - 0.5) * 35
       );
-      // 限制在地圖範圍內
-      target.x = Math.max(-170, Math.min(170, target.x));
-      target.z = Math.max(-230, Math.min(230, target.z));
+      target.x = Math.max(-175, Math.min(175, target.x));
+      target.z = Math.max(-235, Math.min(235, target.z));
     } else {
       npc.mesh.lookAt(target.x, pos.y, target.z);
       const dir = new THREE.Vector3().subVectors(target, pos).normalize();
       pos.x += dir.x * npc.walkSpeed * delta;
       pos.z += dir.z * npc.walkSpeed * delta;
 
-      // 走路擺動
-      npc.legL.rotation.x = Math.sin(npc.animTime * 0.6) * 0.4;
-      npc.legR.rotation.x = -Math.sin(npc.animTime * 0.6) * 0.4;
-      npc.armL.rotation.x = -Math.sin(npc.animTime * 0.6) * 0.4;
-      npc.armR.rotation.x = Math.sin(npc.animTime * 0.6) * 0.4;
+      npc.legL.rotation.x = Math.sin(npc.animTime * 0.6) * 0.35;
+      npc.legR.rotation.x = -Math.sin(npc.animTime * 0.6) * 0.35;
+      npc.armL.rotation.x = -Math.sin(npc.animTime * 0.6) * 0.35;
+      npc.armR.rotation.x = Math.sin(npc.animTime * 0.6) * 0.35;
     }
   }
 
-  // 接收玩家武器攻擊命中判定
   checkHit(raycaster, range, damage) {
     let nearestHit = null;
     let nearestDist = range;
@@ -243,19 +253,16 @@ class NPCSystem {
     if (nearestHit) {
       const npc = nearestHit.npc;
       npc.hp -= damage;
-      npc.hitStun = 0.25;
+      npc.hitStun = 0.22;
 
-      // 更新血條縮放
       if (npc.isHostile && npc.mesh.userData.hpFill) {
         const hpPercent = Math.max(0, npc.hp / npc.maxHp);
         npc.mesh.userData.hpFill.scale.x = hpPercent;
       }
 
-      // 擊退位移
       const knockDir = new THREE.Vector3().subVectors(npc.mesh.position, raycaster.ray.origin).normalize();
       npc.mesh.position.addScaledVector(knockDir, 1.2);
 
-      // 擊殺判定
       if (npc.hp <= 0) {
         this.killNPC(npc);
       }
@@ -268,31 +275,42 @@ class NPCSystem {
   killNPC(npc) {
     npc.isDead = true;
     npc.state = 'dead';
-    npc.mesh.rotation.x = -Math.PI / 2; // 倒地
+    npc.mesh.rotation.x = -Math.PI / 2;
     npc.mesh.position.y = 0.2;
 
     if (npc.isHostile) {
-      this.gameState.kills++;
+      // 觸發擊殺吸血回血
+      this.gameState.onEnemyKilled();
 
-      // 掉落食物或武器
+      // 擊敗暴徒後掉落醫療補給品或食物
       if (this.itemSystem) {
         const dropPos = npc.mesh.position.clone();
-        dropPos.y = 0.8;
-        if (Math.random() > 0.4) {
+        dropPos.y = 0.7;
+        const rand = Math.random();
+        if (rand < 0.45) {
+          this.itemSystem.spawnMedicalItem(dropPos, 'bandage');
+        } else if (rand < 0.75) {
           this.itemSystem.spawnFoodItem(dropPos);
         } else {
-          this.itemSystem.spawnWeaponItem(dropPos);
+          this.itemSystem.spawnMedicalItem(dropPos, 'medkit');
         }
+      }
+    } else {
+      // 誤擊路人掉落普通零食
+      if (this.itemSystem && Math.random() > 0.5) {
+        const dropPos = npc.mesh.position.clone();
+        dropPos.y = 0.7;
+        this.itemSystem.spawnFoodItem(dropPos);
       }
     }
 
-    // 5秒後重新生成新的 NPC 保持城市活力
+    // 4 秒後在城市中重新刷新 NPC
     setTimeout(() => {
       this.scene.remove(npc.mesh);
       const idx = this.npcs.indexOf(npc);
       if (idx !== -1) this.npcs.splice(idx, 1);
       this.spawnNPC(npc.isHostile);
-    }, 5000);
+    }, 4000);
   }
 
   getHostilePositions() {

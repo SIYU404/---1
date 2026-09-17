@@ -17,6 +17,9 @@
   <!-- 受傷紅屏濾鏡 -->
   <div id="damage-overlay"></div>
 
+  <!-- 補血綠芒濾鏡 -->
+  <div id="heal-overlay"></div>
+
   <!-- HUD 介面 -->
   <div id="hud">
     <!-- 準星 -->
@@ -24,9 +27,14 @@
       <div id="crosshair"></div>
     </div>
 
-    <!-- 互動提示 -->
+    <!-- 互動提示 (點擊或按E) -->
     <div id="interact-prompt">
-      <span class="key">E</span> <span id="prompt-text">拾取物品</span>
+      <span class="key" id="prompt-key-badge">點擊 / E</span> <span id="prompt-text">拾取物品</span>
+    </div>
+
+    <!-- 螢幕中央直覺操作提示 -->
+    <div id="touch-hint-banner">
+      👉 點擊人物即發動攻擊 · 點擊物品即直接拾取
     </div>
 
     <!-- 左上角事件日誌 -->
@@ -76,12 +84,12 @@
       <div id="weapon-icon">👊</div>
       <div class="weapon-info">
         <div id="weapon-name">赤手空拳</div>
-        <div id="ammo-count">近戰攻擊 (左鍵)</div>
+        <div id="ammo-count">點擊人物即攻擊</div>
       </div>
     </div>
   </div>
 
-  <!-- 行動裝置 / 平板 虛擬觸控控制器 (在觸控螢幕或手機平板上自動啟用) -->
+  <!-- 行動裝置 / 平板 簡約觸控控制器 (左側滑桿搖桿，右側輕觸點擊人物/物品直接互動) -->
   <div id="touch-controls">
     <!-- 左側：前後左右虛擬搖桿 / 滑桿 -->
     <div id="joystick-zone">
@@ -90,15 +98,13 @@
       </div>
     </div>
 
-    <!-- 右側：視角滑動區域 -->
+    <!-- 右側：視角滑動與直接點選拾取/攻擊觸控區 -->
     <div id="touch-look-zone"></div>
 
-    <!-- 右下角：動作按鈕群 (攻擊、跳躍、拾取、奔跑) -->
+    <!-- 右下角：僅保留跳躍與加速輔助按鈕 (大幅簡化，無需額外拾取與攻擊鍵) -->
     <div id="touch-action-buttons">
-      <button id="btn-touch-sprint" class="touch-btn touch-btn-sprint">🏃</button>
-      <button id="btn-touch-interact" class="touch-btn touch-btn-interact">✋</button>
-      <button id="btn-touch-jump" class="touch-btn touch-btn-jump">🦘</button>
-      <button id="btn-touch-attack" class="touch-btn touch-btn-attack">⚔️</button>
+      <button id="btn-touch-sprint" class="touch-btn touch-btn-sprint" title="奔跑加速">🏃</button>
+      <button id="btn-touch-jump" class="touch-btn touch-btn-jump" title="跳躍/上浮">🦘</button>
     </div>
   </div>
 
@@ -127,44 +133,44 @@
         </div>
         <div class="key-item">
           <span class="key-badge">滑鼠左鍵</span>
-          <span>揮擊 / 開火攻擊</span>
+          <span>點擊人物即攻擊</span>
         </div>
         <div class="key-item">
-          <span class="key-badge">E 鍵</span>
-          <span>拾取食物 / 武器裝備</span>
+          <span class="key-badge">點擊 / E 鍵</span>
+          <span>點擊物品即拾取</span>
         </div>
       </div>
 
       <div class="key-guide-grid mobile-guide" style="display: none;">
         <div class="key-item">
           <span class="key-badge">左側搖桿</span>
-          <span>前後左右滑動移動</span>
+          <span>前後左右滑桿走動</span>
         </div>
         <div class="key-item">
-          <span class="key-badge">右側滑動</span>
-          <span>滑動螢幕旋轉視角</span>
+          <span class="key-badge">滑動右側</span>
+          <span>手指滑動旋轉視角</span>
         </div>
         <div class="key-item">
-          <span class="key-badge">⚔️ 按鈕</span>
-          <span>揮擊武器 / 射擊攻擊</span>
+          <span class="key-badge">點擊人物</span>
+          <span>👆 點擊人物即直接攻擊！</span>
         </div>
         <div class="key-item">
-          <span class="key-badge">🦘 按鈕</span>
-          <span>跳躍 / 水中上浮</span>
+          <span class="key-badge">點擊物品</span>
+          <span>👆 點擊物品即直接拾取！</span>
         </div>
         <div class="key-item">
-          <span class="key-badge">✋ 按鈕</span>
-          <span>拾取食物 / 裝備武器</span>
+          <span class="key-badge">🦘 跳躍</span>
+          <span>跳躍 / 水中上浮換氣</span>
         </div>
         <div class="key-item">
-          <span class="key-badge">🏃 按鈕</span>
-          <span>切換加速奔跑</span>
+          <span class="key-badge">🏃 奔跑</span>
+          <span>切換加速狂奔模式</span>
         </div>
       </div>
 
       <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 20px; line-height: 1.5;">
-        ⚠️ <strong>生存法則</strong>：過馬路時注意隨機衝出的狂飆車輛！小心暗巷中的危險暴徒（拾取武器可反擊擊敗暴徒）。<br>
-        搜刮建築物食物維持飽足感；進入運河水中會閉氣（最多60秒），請及時上浮換氣！
+        💡 <strong>直覺操作</strong>：點擊畫面上的物品/食物/繃帶即可直接拾取；點擊暴徒或路人即可直接攻擊！<br>
+        可進入 24H便利超商、急救診所、拉麵屋與安全屋避雨補給！
       </p>
 
       <button id="start-btn" class="start-btn">進入遊戲 (點擊開始)</button>

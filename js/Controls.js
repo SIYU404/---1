@@ -1,7 +1,7 @@
 /**
  * Controls.js
- * 第一人稱視角控制：支援 PC 鍵盤滑鼠 (WASD + PointerLock) 與 手機/平板螢幕虛擬搖桿
- * 採用標準獨立軸向滑行碰撞 (Swept Slide Collision)，徹底消除卡牆、左右無法移動的問題
+ * 第一人稱視角控制：支援 PC 鍵盤滑鼠與手機/平板直覺觸控
+ * 特色：點擊物品直接拾取、點擊人物/暴徒直接發動攻擊，無須額外繁瑣按鈕
  */
 class FirstPersonControls {
   constructor(camera, domElement, audioManager, gameState) {
@@ -13,7 +13,7 @@ class FirstPersonControls {
     this.isLocked = false;
     this.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 900);
 
-    // 視角旋轉物件 (Yaw: 水平旋轉, Pitch: 仰俯角)
+    // 視角旋轉物件
     this.pitchObject = new THREE.Object3D();
     this.pitchObject.add(camera);
 
@@ -21,7 +21,7 @@ class FirstPersonControls {
     this.yawObject.position.set(0, 1.7, 0);
     this.yawObject.add(this.pitchObject);
 
-    // 移動狀態 (PC 鍵盤)
+    // 移動狀態
     this.moveForward = false;
     this.moveBackward = false;
     this.moveLeft = false;
@@ -29,34 +29,33 @@ class FirstPersonControls {
     this.canJump = false;
     this.isSprinting = false;
 
-    // 觸控虛擬搖桿向量 (-1.0 ~ 1.0)
+    // 觸控虛擬搖桿
     this.joystickVector = { x: 0, z: 0 };
     this.joystickTouchId = null;
     this.joystickCenter = { x: 0, y: 0 };
     this.joystickRadius = 45;
 
-    // 觸控視角滑動
+    // 觸控視角與輕觸點擊檢測 (Tap vs Drag)
     this.lookTouchId = null;
     this.lastLookTouch = { x: 0, y: 0 };
+    this.touchStartTime = 0;
+    this.touchStartPos = { x: 0, y: 0 };
 
-    // 物理速度與參數
-    this.velocity = new THREE.Vector3(); // x: local strafe, y: vertical, z: local forward/back
+    // 速度與物理
+    this.velocity = new THREE.Vector3();
     this.walkSpeed = 16.0;
     this.sprintSpeed = 28.0;
     this.jumpForce = 12.0;
     this.gravity = 30.0;
 
-    // 水下/游泳狀態
     this.isSwimming = false;
     this.wasUnderwater = false;
-
-    // 腳步聲計時器
     this.stepTimer = 0;
 
-    // 建築物與障礙碰撞箱
     this.collisionObstacles = [];
 
-    // 外部回調綁定 (攻擊與拾取)
+    // 外部回調
+    this.onTapWorld = null; // 點擊螢幕世界座標 (clientX, clientY)
     this.onAttackTrigger = null;
     this.onInteractTrigger = null;
 
@@ -68,6 +67,29 @@ class FirstPersonControls {
     document.addEventListener('mousemove', (e) => this.onMouseMove(e), false);
     document.addEventListener('keydown', (e) => this.onKeyDown(e), false);
     document.addEventListener('keyup', (e) => this.onKeyUp(e), false);
+
+    // PC 點擊滑鼠左鍵
+    this.domElement.addEventListener('mousedown', (e) => {
+      if (this.isLocked && e.button === 0) {
+        if (this.onTapWorld) {
+          this.onTapWorld(e.clientX, e.clientY);
+        }
+      }
+    });
+
+    // 點擊互動懸浮提示直接拾取
+    const prompt = document.getElementById('interact-prompt');
+    if (prompt) {
+      prompt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.onInteractTrigger) this.onInteractTrigger();
+      });
+      prompt.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.onInteractTrigger) this.onInteractTrigger();
+      });
+    }
 
     document.addEventListener('pointerlockchange', () => {
       this.isLocked = document.pointerLockElement === this.domElement;
@@ -89,7 +111,7 @@ class FirstPersonControls {
       touchControls.style.display = 'block';
     }
 
-    // 1. 左側虛擬搖桿 (Joystick) 觸控事件
+    // 1. 左側虛擬搖桿 (Joystick)
     const joystickZone = document.getElementById('joystick-zone');
     const joystickBase = document.getElementById('joystick-base');
     const joystickStick = document.getElementById('joystick-stick');
@@ -138,7 +160,7 @@ class FirstPersonControls {
       joystickZone.addEventListener('touchcancel', handleJoystickEnd, { passive: false });
     }
 
-    // 2. 右側滑動旋轉視角
+    // 2. 右側觸控板 (滑動為旋轉視角、輕按點選為點擊拾取/攻擊人物)
     const lookZone = document.getElementById('touch-look-zone');
     if (lookZone) {
       lookZone.addEventListener('touchstart', (e) => {
@@ -146,6 +168,8 @@ class FirstPersonControls {
         const touch = e.changedTouches[0];
         this.lookTouchId = touch.identifier;
         this.lastLookTouch = { x: touch.clientX, y: touch.clientY };
+        this.touchStartPos = { x: touch.clientX, y: touch.clientY };
+        this.touchStartTime = performance.now();
       }, { passive: false });
 
       lookZone.addEventListener('touchmove', (e) => {
@@ -171,40 +195,37 @@ class FirstPersonControls {
 
       const handleLookEnd = (e) => {
         for (let i = 0; i < e.changedTouches.length; i++) {
-          if (e.changedTouches[i].identifier === this.lookTouchId) {
+          const touch = e.changedTouches[i];
+          if (touch.identifier === this.lookTouchId) {
             this.lookTouchId = null;
+
+            // 判斷是否為輕觸點擊 (Tap)：手指移動小於 14px 且按壓時間小於 280ms
+            const duration = performance.now() - this.touchStartTime;
+            const moveDist = Math.hypot(touch.clientX - this.touchStartPos.x, touch.clientY - this.touchStartPos.y);
+
+            if (duration < 280 && moveDist < 14) {
+              // 觸發直接點擊 (點擊人物攻擊 / 點擊物品拾取)
+              if (this.onTapWorld) {
+                this.onTapWorld(touch.clientX, touch.clientY);
+              }
+            }
             break;
           }
         }
       };
+
       lookZone.addEventListener('touchend', handleLookEnd, { passive: false });
       lookZone.addEventListener('touchcancel', handleLookEnd, { passive: false });
     }
 
-    // 3. 觸控動作按鈕
-    const btnAttack = document.getElementById('btn-touch-attack');
+    // 3. 右側精簡輔助按鈕 (跳躍 & 奔跑)
     const btnJump = document.getElementById('btn-touch-jump');
-    const btnInteract = document.getElementById('btn-touch-interact');
     const btnSprint = document.getElementById('btn-touch-sprint');
-
-    if (btnAttack) {
-      btnAttack.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (this.onAttackTrigger) this.onAttackTrigger();
-      }, { passive: false });
-    }
 
     if (btnJump) {
       btnJump.addEventListener('touchstart', (e) => {
         e.preventDefault();
         this.triggerJump();
-      }, { passive: false });
-    }
-
-    if (btnInteract) {
-      btnInteract.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (this.onInteractTrigger) this.onInteractTrigger();
       }, { passive: false });
     }
 
@@ -229,9 +250,8 @@ class FirstPersonControls {
 
     stickElement.style.transform = `translate(${dx}px, ${dy}px)`;
 
-    // 正規化 (-1.0 ~ 1.0)
     this.joystickVector.x = dx / this.joystickRadius;
-    this.joystickVector.z = -dy / this.joystickRadius; // 向上為正前 (+Z)
+    this.joystickVector.z = -dy / this.joystickRadius;
   }
 
   triggerJump() {
@@ -307,6 +327,9 @@ class FirstPersonControls {
       case 'ShiftRight':
         this.isSprinting = true;
         break;
+      case 'KeyE':
+        if (this.onInteractTrigger) this.onInteractTrigger();
+        break;
     }
   }
 
@@ -357,9 +380,8 @@ class FirstPersonControls {
     }
   }
 
-  // 障礙物碰撞檢測
   checkPointCollision(px, py, pz) {
-    const r = 0.5; // 玩家半徑
+    const r = 0.5;
     for (let i = 0; i < this.collisionObstacles.length; i++) {
       const box = this.collisionObstacles[i];
       if (
@@ -383,7 +405,6 @@ class FirstPersonControls {
 
     this.checkWater(pos);
 
-    // 速度衰減阻尼
     const damping = this.isSwimming ? 4.0 : 10.0;
     this.velocity.x -= this.velocity.x * damping * delta;
     this.velocity.z -= this.velocity.z * damping * delta;
@@ -394,7 +415,6 @@ class FirstPersonControls {
       this.velocity.y -= this.gravity * delta;
     }
 
-    // 計算水平輸入向量 (Z: 前後, X: 左右)
     let forwardInput = (Number(this.moveForward) - Number(this.moveBackward)) + this.joystickVector.z;
     let rightInput = (Number(this.moveRight) - Number(this.moveLeft)) + this.joystickVector.x;
 
@@ -413,41 +433,32 @@ class FirstPersonControls {
       this.velocity.x += rightInput * speed * 6.0 * delta;
     }
 
-    // 取得當前面向方向的世界向量
     const yawAngle = this.yawObject.rotation.y;
     const cosY = Math.cos(yawAngle);
     const sinY = Math.sin(yawAngle);
 
-    // 將區域速度 (velocity.x: 右, velocity.z: 前) 轉換為世界座標位移
-    // forward vector in world: (-sinY, -cosY)
-    // right vector in world: (cosY, -sinY)
     const worldMoveX = (cosY * this.velocity.x - sinY * this.velocity.z) * delta;
     const worldMoveZ = (-sinY * this.velocity.x - cosY * this.velocity.z) * delta;
 
-    // 分軸滑行碰撞 (X 軸獨立位移與檢測)
     pos.x += worldMoveX;
     if (this.checkPointCollision(pos.x, pos.y, pos.z)) {
-      pos.x -= worldMoveX; // 撞牆回退 X，允許沿 Z 軸滑行
+      pos.x -= worldMoveX;
       this.velocity.x = 0;
     }
 
-    // Z 軸獨立位移與檢測
     pos.z += worldMoveZ;
     if (this.checkPointCollision(pos.x, pos.y, pos.z)) {
-      pos.z -= worldMoveZ; // 撞牆回退 Z，允許沿 X 軸滑行
+      pos.z -= worldMoveZ;
       this.velocity.z = 0;
     }
 
-    // 垂直位移
     pos.y += this.velocity.y * delta;
 
-    // 地面/水底高度檢測
     let floorHeight = 1.7;
     if (pos.x >= -11 && pos.x <= 11 && pos.z >= -250 && pos.z <= 250 && pos.y < 2.0) {
       floorHeight = -3.5;
     }
 
-    // 跨河大橋判定 (Z 軸 -140, -70, 0, 70, 140)
     const bridgeZs = [-140, -70, 0, 70, 140];
     const isOverBridge = bridgeZs.some(bz => Math.abs(pos.x) <= 13 && Math.abs(pos.z - bz) <= 7);
     if (isOverBridge) {
@@ -460,11 +471,9 @@ class FirstPersonControls {
       this.canJump = true;
     }
 
-    // 地圖邊界防穿出
     pos.x = Math.max(-190, Math.min(190, pos.x));
     pos.z = Math.max(-240, Math.min(240, pos.z));
 
-    // 腳步聲
     const isMoving = (Math.abs(rightInput) > 0.1 || Math.abs(forwardInput) > 0.1);
     if (isMoving && (this.canJump || this.isSwimming)) {
       const stepInterval = this.isSprinting ? 0.28 : 0.42;
