@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>都市生存探索 3D (Urban Survival FPS)</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- 水下全螢幕濾鏡 -->
+  <div id="underwater-overlay"></div>
+
+  <!-- 受傷紅屏濾鏡 -->
+  <div id="damage-overlay"></div>
+
+  <!-- HUD 介面 -->
+  <div id="hud">
+    <!-- 準星 -->
+    <div id="crosshair-container">
+      <div id="crosshair"></div>
+    </div>
+
+    <!-- 互動提示 -->
+    <div id="interact-prompt">
+      <span class="key">E</span> <span id="prompt-text">拾取物品</span>
+    </div>
+
+    <!-- 左上角事件日誌 -->
+    <div id="event-log"></div>
+
+    <!-- 右上角小地圖雷達 -->
+    <div id="radar-container">
+      <canvas id="radar-canvas" width="140" height="140"></canvas>
+      <div id="radar-sweep"></div>
+    </div>
+
+    <!-- 左下角生存狀態條 -->
+    <div id="status-bars">
+      <div class="status-row">
+        <div class="status-label">
+          <span style="color: #ff5252;">❤️ 生命值 (HP)</span>
+          <span id="hp-val">100 / 100</span>
+        </div>
+        <div class="bar-bg">
+          <div id="hp-bar" class="bar-fill hp-fill" style="width: 100%;"></div>
+        </div>
+      </div>
+
+      <div class="status-row">
+        <div class="status-label">
+          <span style="color: #fbbf24;">🍗 飽足感 (Hunger)</span>
+          <span id="hunger-val">100%</span>
+        </div>
+        <div class="bar-bg">
+          <div id="hunger-bar" class="bar-fill hunger-fill" style="width: 100%;"></div>
+        </div>
+      </div>
+
+      <div class="status-row hidden" id="oxygen-row">
+        <div class="status-label">
+          <span style="color: #38bdf8;">🤿 閉氣氧氣 (Breath)</span>
+          <span id="oxygen-val">60.0s</span>
+        </div>
+        <div class="bar-bg">
+          <div id="oxygen-bar" class="bar-fill oxygen-fill" style="width: 100%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右下角武器資訊 -->
+    <div id="weapon-hud">
+      <div id="weapon-icon">👊</div>
+      <div class="weapon-info">
+        <div id="weapon-name">赤手空拳</div>
+        <div id="ammo-count">近戰攻擊 (左鍵)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 遊戲開始 / 暫停遮罩 -->
+  <div id="blocker">
+    <div id="instructions-box">
+      <h1>都市生存探索 3D</h1>
+      <p class="subtitle">第一人稱探索 · 生理指標管理 · 都市危險生存 · 戰鬥反擊</p>
+      
+      <div class="key-guide-grid">
+        <div class="key-item">
+          <span class="key-badge">W A S D</span>
+          <span>角色前後左右移動</span>
+        </div>
+        <div class="key-item">
+          <span class="key-badge">滑鼠移動</span>
+          <span>環顧四周 / 360° 視角</span>
+        </div>
+        <div class="key-item">
+          <span class="key-badge">SPACE 空白鍵</span>
+          <span>跳躍 / 水中上浮</span>
+        </div>
+        <div class="key-item">
+          <span class="key-badge">SHIFT</span>
+          <span>加速奔跑</span>
+        </div>
+        <div class="key-item">
+          <span class="key-badge">滑鼠左鍵</span>
+          <span>揮擊 / 開火攻擊</span>
+        </div>
+        <div class="key-item">
+          <span class="key-badge">E 鍵</span>
+          <span>拾取食物 / 武器裝備</span>
+        </div>
+      </div>
+
+      <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 22px; line-height: 1.5;">
+        ⚠️ <strong>生存法則</strong>：注意過馬路時隨時衝出的車輛！小心巷子裡的危險暴徒（手持武器可反擊擊敗暴徒）。<br>
+        隨時搜刮建築物內的食物維持飽足感；跳入運河水中會閉氣（最多60秒），請及時上浮換氣！
+      </p>
+
+      <button id="start-btn" class="start-btn">開始進入都市 (點擊進入視角)</button>
+    </div>
+  </div>
+
+  <!-- Game Over 死亡結算畫面 -->
+  <div id="game-over-modal">
+    <h1>你已陣亡 (GAME OVER)</h1>
+    <p class="death-cause" id="death-cause-text">死因：被狂飆的車輛撞死</p>
+    <div class="stats-box" id="game-over-stats">
+      存活時間：0分42秒<br>
+      擊敗暴徒：0 人<br>
+      搜刮食物：0 份
+    </div>
+    <button id="restart-btn" class="restart-btn">重新開始遊戲</button>
+  </div>
+
+  <!-- 遊戲模組載入 -->
+  <script src="js/AudioManager.js"></script>
+  <script src="js/GameState.js"></script>
+  <script src="js/Controls.js"></script>
+  <script src="js/CityBuilder.js"></script>
+  <script src="js/WeaponSystem.js"></script>
+  <script src="js/TrafficSystem.js"></script>
+  <script src="js/NPCSystem.js"></script>
+  <script src="js/ItemSystem.js"></script>
+  <script src="js/UIManager.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

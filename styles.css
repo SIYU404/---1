@@ -1,0 +1,468 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #0b0f19;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+  color: #fff;
+}
+
+#game-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+/* 遊戲開始 / 暫停遮罩 */
+#blocker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.88) 0%, rgba(5, 8, 16, 0.98) 100%);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  transition: opacity 0.3s ease;
+}
+
+#instructions-box {
+  background: rgba(18, 26, 46, 0.92);
+  border: 1px solid rgba(0, 242, 254, 0.4);
+  box-shadow: 0 0 35px rgba(0, 242, 254, 0.2), inset 0 0 20px rgba(0, 242, 254, 0.05);
+  border-radius: 14px;
+  padding: 32px 42px;
+  max-width: 680px;
+  text-align: center;
+}
+
+#instructions-box h1 {
+  font-size: 2.2rem;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 50%, #ff0844 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  font-weight: 900;
+}
+
+#instructions-box p.subtitle {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  margin-bottom: 20px;
+}
+
+.key-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 16px 0 24px 0;
+  text-align: left;
+}
+
+.key-item {
+  background: rgba(30, 41, 59, 0.7);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-left: 3px solid #00f2fe;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+}
+
+.key-badge {
+  background: #0ea5e9;
+  color: #0f172a;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
+.start-btn {
+  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+  color: #050b14;
+  border: none;
+  padding: 13px 40px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  border-radius: 30px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4);
+  transition: all 0.2s ease;
+  letter-spacing: 1px;
+}
+
+.start-btn:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 25px rgba(0, 242, 254, 0.7);
+}
+
+/* 遊戲抬頭顯示 HUD */
+#hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* 準心 */
+#crosshair-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#crosshair {
+  width: 6px;
+  height: 6px;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(0, 242, 254, 0.8);
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+#crosshair.crosshair-interact {
+  transform: scale(2.2);
+  background-color: #00f2fe;
+}
+
+#crosshair.crosshair-hit {
+  transform: scale(2.5);
+  background-color: #ff1744;
+}
+
+/* 互動拾取提示 */
+#interact-prompt {
+  position: absolute;
+  top: 56%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid #00f2fe;
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  display: none;
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
+  letter-spacing: 0.5px;
+}
+
+#interact-prompt span.key {
+  color: #38bdf8;
+  background: #1e293b;
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-right: 6px;
+  border: 1px solid #38bdf8;
+}
+
+/* 左下角生理狀態條 */
+#status-bars {
+  position: absolute;
+  bottom: 24px;
+  left: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(11, 15, 25, 0.7);
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  min-width: 250px;
+}
+
+.status-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.bar-bg {
+  width: 100%;
+  height: 11px;
+  background: rgba(15, 23, 42, 0.85);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+}
+
+.bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 5px;
+  transition: width 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hp-fill {
+  background: linear-gradient(90deg, #ff1744, #ff5252);
+  box-shadow: 0 0 8px rgba(255, 23, 68, 0.6);
+}
+
+.hunger-fill {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+}
+
+.oxygen-fill {
+  background: linear-gradient(90deg, #0284c7, #38bdf8);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+}
+
+#oxygen-row {
+  transition: opacity 0.3s ease;
+}
+
+#oxygen-row.hidden {
+  display: none;
+}
+
+/* 右下角武器欄位 */
+#weapon-hud {
+  position: absolute;
+  bottom: 24px;
+  right: 28px;
+  background: rgba(11, 15, 25, 0.75);
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 190px;
+}
+
+#weapon-icon {
+  font-size: 2.2rem;
+  filter: drop-shadow(0 0 6px #00f2fe);
+}
+
+.weapon-info {
+  display: flex;
+  flex-direction: column;
+}
+
+#weapon-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.5px;
+}
+
+#ammo-count {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* 右上角雷達小地圖 */
+#radar-container {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  width: 140px;
+  height: 140px;
+  background: rgba(11, 15, 25, 0.85);
+  border: 2px solid rgba(0, 242, 254, 0.5);
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.25);
+}
+
+#radar-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+#radar-sweep {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(0, 242, 254, 0.25) 0deg, transparent 60deg, transparent 360deg);
+  animation: sweep 2.5s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 水下特效濾鏡 */
+#underwater-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, rgba(3, 105, 161, 0.4) 0%, rgba(2, 44, 76, 0.8) 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 5;
+}
+
+#underwater-overlay.active {
+  opacity: 1;
+}
+
+/* 受傷紅屏濾鏡 */
+#damage-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, transparent 45%, rgba(255, 23, 68, 0.75) 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.08s ease;
+  z-index: 6;
+}
+
+/* 事件日誌 */
+#event-log {
+  position: absolute;
+  top: 24px;
+  left: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 320px;
+}
+
+.log-item {
+  background: rgba(15, 23, 42, 0.85);
+  border-left: 3px solid #38bdf8;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  animation: slideIn 0.3s ease, fadeOut 0.5s ease 3.5s forwards;
+}
+
+.log-item.warning {
+  border-left-color: #f59e0b;
+  color: #fef08a;
+}
+
+.log-item.danger {
+  border-left-color: #ef4444;
+  color: #fca5a5;
+}
+
+.log-item.success {
+  border-left-color: #10b981;
+  color: #a7f3d0;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-15px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeOut {
+  to { opacity: 0; transform: translateY(-5px); }
+}
+
+/* 遊戲結束 Game Over 畫面 */
+#game-over-modal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(8, 2, 4, 0.94);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+#game-over-modal h1 {
+  font-size: 3.4rem;
+  color: #ff1744;
+  text-shadow: 0 0 25px rgba(255, 23, 68, 0.8);
+  margin-bottom: 10px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+#game-over-modal p.death-cause {
+  font-size: 1.25rem;
+  color: #fda4af;
+  margin-bottom: 20px;
+}
+
+#game-over-modal .stats-box {
+  background: rgba(30, 10, 15, 0.6);
+  border: 1px solid rgba(255, 23, 68, 0.4);
+  padding: 14px 28px;
+  border-radius: 10px;
+  margin-bottom: 24px;
+  font-size: 1rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.restart-btn {
+  background: linear-gradient(135deg, #ff1744 0%, #d50000 100%);
+  color: #fff;
+  border: none;
+  padding: 13px 36px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  border-radius: 30px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(255, 23, 68, 0.5);
+  transition: all 0.2s ease;
+}
+
+.restart-btn:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 6px 25px rgba(255, 23, 68, 0.8);
+}
