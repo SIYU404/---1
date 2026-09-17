@@ -1,6 +1,6 @@
 /**
  * CityBuilder.js
- * 3D 現代都市地圖生成器：包含摩天大樓、街道、中央運河、大橋、室內穿堂與霓虹街景
+ * 3D 現代都市地圖生成器：嚴謹劃分建築區塊、道路、人行道與中央運河，確保走道寬敞暢通無穿模阻擋
  */
 class CityBuilder {
   constructor(scene) {
@@ -22,7 +22,7 @@ class CityBuilder {
 
   createGroundAndRoads() {
     // 基礎地面
-    const groundGeo = new THREE.PlaneGeometry(400, 500);
+    const groundGeo = new THREE.PlaneGeometry(420, 520);
     const groundMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
@@ -30,33 +30,32 @@ class CityBuilder {
     ground.receiveShadow = true;
     this.scene.add(ground);
 
-    // 道路材質
     const roadMat = new THREE.MeshLambertMaterial({ color: 0x0f172a });
     const lineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
     const zebraMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const sidewalkMat = new THREE.MeshLambertMaterial({ color: 0x475569 });
 
-    // 東西兩側主要的南北向大道 (X = -60, X = 60, X = -120, X = 120)
-    const mainRoadXs = [-60, 60, -120, 120];
+    // 南北向大道 (X = -62, X = 62, X = -122, X = 122)，車道寬度 14 米
+    const mainRoadXs = [-62, 62, -122, 122];
     mainRoadXs.forEach(rx => {
-      // 車道
-      const road = new THREE.Mesh(new THREE.PlaneGeometry(16, 480), roadMat);
+      // 馬路路面
+      const road = new THREE.Mesh(new THREE.PlaneGeometry(14, 480), roadMat);
       road.rotation.x = -Math.PI / 2;
       road.position.set(rx, 0.02, 0);
       road.receiveShadow = true;
       this.scene.add(road);
 
-      // 車道中線 (虛線黃色)
+      // 車道中央黃色虛線
       for (let z = -230; z <= 230; z += 12) {
-        const line = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 6), lineMat);
+        const line = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 6), lineMat);
         line.rotation.x = -Math.PI / 2;
         line.position.set(rx, 0.03, z);
         this.scene.add(line);
       }
 
-      // 人行道 (左右兩側)
-      [-9.5, 9.5].forEach(offsetX => {
-        const sw = new THREE.Mesh(new THREE.BoxGeometry(3, 0.2, 480), sidewalkMat);
+      // 人行道 (寬 3.5 米)
+      [-8.75, 8.75].forEach(offsetX => {
+        const sw = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.2, 480), sidewalkMat);
         sw.position.set(rx + offsetX, 0.1, 0);
         sw.receiveShadow = true;
         this.scene.add(sw);
@@ -65,143 +64,134 @@ class CityBuilder {
       this.roadSegments.push({ x: rx, zMin: -230, zMax: 230, dir: 'Z' });
     });
 
-    // 東西向橫向街道 (Z = -140, Z = -70, Z = 0, Z = 70, Z = 140)
+    // 東西向街道 (Z = -140, Z = -70, Z = 0, Z = 70, Z = 140)，寬度 14 米
     const crossRoadZs = [-140, -70, 0, 70, 140];
     crossRoadZs.forEach(rz => {
-      const crossRoad = new THREE.Mesh(new THREE.PlaneGeometry(360, 16), roadMat);
+      const crossRoad = new THREE.Mesh(new THREE.PlaneGeometry(380, 14), roadMat);
       crossRoad.rotation.x = -Math.PI / 2;
       crossRoad.position.set(0, 0.02, rz);
       crossRoad.receiveShadow = true;
       this.scene.add(crossRoad);
 
-      // 斑馬線 (在各十字路口)
+      // 斑馬線
       mainRoadXs.forEach(rx => {
-        for (let i = -6; i <= 6; i += 1.8) {
-          const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 4), zebraMat);
-          stripe.rotation.x = -Math.PI / 2;
-          stripe.position.set(rx + i, 0.04, rz - 9);
-          this.scene.add(stripe);
+        for (let i = -5; i <= 5; i += 1.6) {
+          const stripe1 = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 3.5), zebraMat);
+          stripe1.rotation.x = -Math.PI / 2;
+          stripe1.position.set(rx + i, 0.04, rz - 8.5);
+          this.scene.add(stripe1);
 
-          const stripe2 = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 4), zebraMat);
+          const stripe2 = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 3.5), zebraMat);
           stripe2.rotation.x = -Math.PI / 2;
-          stripe2.position.set(rx + i, 0.04, rz + 9);
+          stripe2.position.set(rx + i, 0.04, rz + 8.5);
           this.scene.add(stripe2);
         }
       });
 
-      this.roadSegments.push({ z: rz, xMin: -170, xMax: 170, dir: 'X' });
+      this.roadSegments.push({ z: rz, xMin: -180, xMax: 180, dir: 'X' });
     });
   }
 
   createCanalAndBridges() {
-    // 運河水面 (X: -12 ~ 12, Z: -250 ~ 250)
-    const waterGeo = new THREE.PlaneGeometry(24, 490, 24, 40);
+    // 運河水面 (X: -11 ~ 11, Z: -250 ~ 250)
+    const waterGeo = new THREE.PlaneGeometry(22, 490, 20, 30);
     const waterMat = new THREE.MeshStandardMaterial({
       color: 0x0284c7,
-      roughness: 0.1,
+      roughness: 0.15,
       metalness: 0.8,
       transparent: true,
-      opacity: 0.75
+      opacity: 0.8
     });
     this.waterMesh = new THREE.Mesh(waterGeo, waterMat);
     this.waterMesh.rotation.x = -Math.PI / 2;
     this.waterMesh.position.set(0, 0.1, 0);
     this.scene.add(this.waterMesh);
 
-    // 運河兩側石壁堤防
+    // 運河護岸石壁與河畔步道
     const canalWallMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
-    [-12.5, 12.5].forEach(xPos => {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(1.5, 4.5, 490), canalWallMat);
+    const promenadeMat = new THREE.MeshLambertMaterial({ color: 0x64748b });
+
+    [-11.5, 11.5].forEach(xPos => {
+      // 堤岸石壁
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(1.2, 4.5, 490), canalWallMat);
       wall.position.set(xPos, -1.8, 0);
       wall.receiveShadow = true;
       this.scene.add(wall);
 
-      // 沿岸護欄
-      const fenceMat = new THREE.MeshLambertMaterial({ color: 0x94a3b8 });
-      for (let z = -240; z <= 240; z += 15) {
-        // 跳過橋樑開口處
-        const nearBridge = [-140, -70, 0, 70, 140].some(bz => Math.abs(z - bz) < 10);
-        if (!nearBridge) {
-          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.1), fenceMat);
-          post.position.set(xPos, 0.55, z);
-          this.scene.add(post);
-
-          const bar = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 15), fenceMat);
-          bar.position.set(xPos, 0.9, z);
-          this.scene.add(bar);
-        }
-      }
+      // 河畔散步大道 (寬 6 米)
+      const promX = xPos > 0 ? xPos + 3.8 : xPos - 3.8;
+      const prom = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.2, 490), promenadeMat);
+      prom.position.set(promX, 0.1, 0);
+      prom.receiveShadow = true;
+      this.scene.add(prom);
     });
 
-    // 運河跨河大橋 (在每個十字路口連接東西城區)
+    // 跨河大橋 (連接東西城區)
     const bridgeZs = [-140, -70, 0, 70, 140];
     const bridgeMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
     const archMat = new THREE.MeshLambertMaterial({ color: 0x0284c7 });
 
     bridgeZs.forEach(bz => {
-      // 橋面
-      const bridge = new THREE.Mesh(new THREE.BoxGeometry(28, 0.8, 16), bridgeMat);
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(26, 0.8, 14), bridgeMat);
       bridge.position.set(0, 1.5, bz);
       bridge.castShadow = true;
       bridge.receiveShadow = true;
       this.scene.add(bridge);
 
-      // 橋拱與斜坡道 (方便玩家與車輛開上橋)
-      [-14, 14].forEach(edgeX => {
-        const ramp = new THREE.Mesh(new THREE.BoxGeometry(8, 0.6, 16), bridgeMat);
+      [-13, 13].forEach(edgeX => {
+        const ramp = new THREE.Mesh(new THREE.BoxGeometry(7, 0.6, 14), bridgeMat);
         ramp.position.set(edgeX + (edgeX > 0 ? 3 : -3), 0.7, bz);
-        ramp.rotation.z = (edgeX > 0 ? 0.18 : -0.18);
+        ramp.rotation.z = (edgeX > 0 ? 0.16 : -0.16);
         this.scene.add(ramp);
       });
 
-      // 景觀拱門裝飾
-      const arch = new THREE.Mesh(new THREE.TorusGeometry(8, 0.35, 8, 24, Math.PI), archMat);
-      arch.position.set(0, 1.6, bz - 7.5);
+      // 裝飾拱門
+      const arch = new THREE.Mesh(new THREE.TorusGeometry(7, 0.3, 8, 24, Math.PI), archMat);
+      arch.position.set(0, 1.6, bz - 6.5);
       this.scene.add(arch);
 
       const arch2 = arch.clone();
-      arch2.position.set(0, 1.6, bz + 7.5);
+      arch2.position.set(0, 1.6, bz + 6.5);
       this.scene.add(arch2);
 
-      // 下水階梯/爬梯 (在橋旁設置，供掉入水中的玩家爬上岸)
-      const ladder = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 0.4), new THREE.MeshLambertMaterial({ color: 0xf59e0b }));
-      ladder.position.set(-11.5, -0.5, bz + 9);
+      // 爬梯
+      const ladder = new THREE.Mesh(new THREE.BoxGeometry(1.8, 4, 0.3), new THREE.MeshLambertMaterial({ color: 0xf59e0b }));
+      ladder.position.set(-10.8, -0.5, bz + 8);
       this.scene.add(ladder);
-      this.lootSpawnPoints.push(new THREE.Vector3(-11, 0.5, bz + 9));
+      this.lootSpawnPoints.push(new THREE.Vector3(-10.5, 0.6, bz + 8));
     });
   }
 
   createCityBuildings() {
-    // 建築物網格分佈區塊
     const buildingColors = [0x1e293b, 0x0f172a, 0x334155, 0x1e1e2f, 0x252a34, 0x182c3c];
     const windowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
     const warmWindowMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
 
-    // 定義建築物群落的 X 軸與 Z 軸區間 (避開馬路與運河)
+    // 嚴格規劃的建築區塊，四周預留充裕人行道空間，絕不佔用馬路
     const blockXRanges = [
-      { min: -170, max: -130 },
-      { min: -110, max: -70 },
-      { min: -50, max: -18 },
-      { min: 18, max: 50 },
-      { min: 70, max: 110 },
-      { min: 130, max: 170 }
+      { min: -170, max: -136 },
+      { min: -108, max: -76 },
+      { min: -48, max: -20 },
+      { min: 20, max: 48 },
+      { min: 76, max: 108 },
+      { min: 136, max: 170 }
     ];
 
     const blockZRanges = [
-      { min: -220, max: -150 },
-      { min: -130, max: -80 },
-      { min: -60, max: -10 },
-      { min: 10, max: 60 },
-      { min: 80, max: 130 },
-      { min: 150, max: 220 }
+      { min: -220, max: -154 },
+      { min: -126, max: -84 },
+      { min: -56, max: -14 },
+      { min: 14, max: 56 },
+      { min: 84, max: 126 },
+      { min: 154, max: 220 }
     ];
 
     blockXRanges.forEach((xRange, bxIdx) => {
       blockZRanges.forEach((zRange, bzIdx) => {
-        // 每個區塊隨機生成 1~2 棟大樓與室內穿堂/暗巷
+        // 建築本體寬度留出 3 米間距走道
         const width = (xRange.max - xRange.min) - 4;
         const depth = (zRange.max - zRange.min) - 4;
-        const height = 25 + ((bxIdx * 7 + bzIdx * 13) % 45); // 高度 25 ~ 70m
+        const height = 24 + ((bxIdx * 9 + bzIdx * 17) % 40);
         const centerX = (xRange.min + xRange.max) / 2;
         const centerZ = (zRange.min + zRange.max) / 2;
 
@@ -215,15 +205,15 @@ class CityBuilder {
         bMesh.receiveShadow = true;
         this.scene.add(bMesh);
 
-        // 記錄碰撞箱 (留出周邊走道與門廊)
+        // 碰撞箱 (精確吻合建築本體)
         const box = new THREE.Box3().setFromObject(bMesh);
         this.collisionBoxes.push(box);
 
-        // 建築物窗戶陣列
+        // 窗戶
         const winGeo = new THREE.PlaneGeometry(1.2, 1.8);
         for (let wy = 4; wy < height - 3; wy += 5) {
-          for (let wx = -width / 2 + 3; wx < width / 2 - 2; wx += 4.5) {
-            const isLit = (Math.sin(wx * 10 + wy * 5 + bxIdx) > -0.2);
+          for (let wx = -width / 2 + 2.5; wx < width / 2 - 2; wx += 4) {
+            const isLit = (Math.sin(wx * 8 + wy * 4 + bxIdx) > -0.1);
             if (isLit) {
               const win = new THREE.Mesh(winGeo, (Math.random() > 0.4 ? windowMat : warmWindowMat));
               win.position.set(centerX + wx, wy, centerZ + depth / 2 + 0.05);
@@ -232,20 +222,20 @@ class CityBuilder {
           }
         }
 
-        // 建築前門大廳/挑高門廊 (可走進去搜刮物資)
-        const lobby = new THREE.Mesh(new THREE.BoxGeometry(6, 3.5, 3), new THREE.MeshLambertMaterial({ color: 0x0284c7 }));
-        lobby.position.set(centerX, 1.75, centerZ + depth / 2 + 1.2);
+        // 大樓入口前廳 (可供玩家搜刮避雨)
+        const lobby = new THREE.Mesh(new THREE.BoxGeometry(5, 3.2, 2.5), new THREE.MeshLambertMaterial({ color: 0x0284c7 }));
+        lobby.position.set(centerX, 1.6, centerZ + depth / 2 + 1.2);
         this.scene.add(lobby);
 
-        // 建築物物資刷新點 (門口、大樓背後暗巷)
-        this.lootSpawnPoints.push(new THREE.Vector3(centerX, 0.8, centerZ + depth / 2 + 2.5));
-        this.lootSpawnPoints.push(new THREE.Vector3(centerX + width / 2 + 1.8, 0.8, centerZ));
-        this.lootSpawnPoints.push(new THREE.Vector3(centerX - width / 2 - 1.8, 0.8, centerZ));
-        this.lootSpawnPoints.push(new THREE.Vector3(centerX, 0.8, centerZ - depth / 2 - 1.8));
+        // 刷新物資點 (四周寬敞走道上)
+        this.lootSpawnPoints.push(new THREE.Vector3(centerX, 0.7, centerZ + depth / 2 + 2.8));
+        this.lootSpawnPoints.push(new THREE.Vector3(centerX + width / 2 + 2.0, 0.7, centerZ));
+        this.lootSpawnPoints.push(new THREE.Vector3(centerX - width / 2 - 2.0, 0.7, centerZ));
+        this.lootSpawnPoints.push(new THREE.Vector3(centerX, 0.7, centerZ - depth / 2 - 2.0));
 
-        // 行人路徑巡邏點
-        this.pedestrianPaths.push(new THREE.Vector3(centerX, 0.5, centerZ + depth / 2 + 5));
-        this.pedestrianPaths.push(new THREE.Vector3(centerX + width / 2 + 3, 0.5, centerZ));
+        // 行人路徑
+        this.pedestrianPaths.push(new THREE.Vector3(centerX, 0.5, centerZ + depth / 2 + 4.5));
+        this.pedestrianPaths.push(new THREE.Vector3(centerX + width / 2 + 3.5, 0.5, centerZ));
       });
     });
   }
@@ -254,75 +244,66 @@ class CityBuilder {
     const lampMat = new THREE.MeshLambertMaterial({ color: 0x64748b });
     const bulbMat = new THREE.MeshBasicMaterial({ color: 0xfffbeb });
 
-    // 在主要路口設置路燈與光源
     const lightPositions = [
-      [-68, -140], [-68, -70], [-68, 0], [-68, 70], [-68, 140],
+      [-72, -140], [-72, -70], [-72, 0], [-72, 70], [-72, 140],
       [-52, -140], [-52, -70], [-52, 0], [-52, 70], [-52, 140],
       [52, -140], [52, -70], [52, 0], [52, 70], [52, 140],
-      [68, -140], [68, -70], [68, 0], [68, 70], [68, 140],
-      [-128, -70], [-128, 70], [128, -70], [128, 70]
+      [72, -140], [72, -70], [72, 0], [72, 70], [72, 140]
     ];
 
     lightPositions.forEach(([lx, lz]) => {
-      // 燈桿
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 6), lampMat);
-      pole.position.set(lx, 3, lz);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 5.5), lampMat);
+      pole.position.set(lx, 2.75, lz);
       this.scene.add(pole);
 
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.15, 0.15), lampMat);
-      arm.position.set(lx + (lx < 0 ? 0.7 : -0.7), 5.9, lz);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 0.12), lampMat);
+      arm.position.set(lx + (lx < 0 ? 0.6 : -0.6), 5.4, lz);
       this.scene.add(arm);
 
-      // 燈泡
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), bulbMat);
-      bulb.position.set(lx + (lx < 0 ? 1.3 : -1.3), 5.6, lz);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), bulbMat);
+      bulb.position.set(lx + (lx < 0 ? 1.1 : -1.1), 5.1, lz);
       this.scene.add(bulb);
 
-      // 點光源 (為效能優化僅放部分，其他使用平行光與氛圍光)
-      if (Math.abs(lx) <= 70 && Math.abs(lz) <= 70) {
-        const pLight = new THREE.PointLight(0xffedd5, 0.8, 22);
-        pLight.position.set(lx, 5.2, lz);
+      if (Math.abs(lx) <= 72 && Math.abs(lz) <= 70) {
+        const pLight = new THREE.PointLight(0xffedd5, 0.8, 20);
+        pLight.position.set(lx, 4.8, lz);
         this.scene.add(pLight);
       }
     });
 
-    // 賽博霓虹招牌
+    // 霓虹發光看板
     const neonTexts = [
-      { text: '🍜 RAMEN', col: 0xf43f5e, pos: [-48, 4.5, -60], rot: 0 },
-      { text: '💊 PHARMACY', col: 0x10b981, pos: [48, 4.5, 60], rot: Math.PI },
-      { text: '🍸 NIGHT BAR', col: 0xa855f7, pos: [-48, 5, 20], rot: 0 },
-      { text: '🏪 24H MARKET', col: 0x38bdf8, pos: [48, 4, -40], rot: Math.PI }
+      { text: '🍜 RAMEN', col: 0xf43f5e, pos: [-48, 4.5, -58], rot: 0 },
+      { text: '💊 PHARMACY', col: 0x10b981, pos: [48, 4.5, 58], rot: Math.PI },
+      { text: '🍸 NIGHT BAR', col: 0xa855f7, pos: [-48, 5, 16], rot: 0 },
+      { text: '🏪 24H MARKET', col: 0x38bdf8, pos: [48, 4, -38], rot: Math.PI }
     ];
 
     neonTexts.forEach(sign => {
       const signBoard = new THREE.Mesh(
-        new THREE.BoxGeometry(6, 1.8, 0.3),
+        new THREE.BoxGeometry(5.5, 1.6, 0.3),
         new THREE.MeshLambertMaterial({ color: 0x0f172a })
       );
       signBoard.position.set(sign.pos[0], sign.pos[1], sign.pos[2]);
       signBoard.rotation.y = sign.rot;
       this.scene.add(signBoard);
 
-      const glowLight = new THREE.PointLight(sign.col, 1.2, 14);
+      const glowLight = new THREE.PointLight(sign.col, 1.2, 12);
       glowLight.position.set(sign.pos[0], sign.pos[1], sign.pos[2] + (sign.rot === 0 ? 0.8 : -0.8));
       this.scene.add(glowLight);
     });
   }
 
   createAtmosphere() {
-    // 霧氣與微光
-    this.scene.fog = new THREE.FogExp2(0x0f172a, 0.008);
+    this.scene.fog = new THREE.FogExp2(0x0b0f19, 0.007);
 
-    // 環境光
-    const ambientLight = new THREE.AmbientLight(0x384259, 0.8);
+    const ambientLight = new THREE.AmbientLight(0x475569, 0.9);
     this.scene.add(ambientLight);
 
-    // 半球光 (天藍與地表深色過渡)
-    const hemiLight = new THREE.HemisphereLight(0x60a5fa, 0x0f172a, 0.5);
+    const hemiLight = new THREE.HemisphereLight(0x60a5fa, 0x0f172a, 0.6);
     this.scene.add(hemiLight);
 
-    // 主平行光 (月光/都市黃昏天光)
-    const dirLight = new THREE.DirectionalLight(0x93c5fd, 0.7);
+    const dirLight = new THREE.DirectionalLight(0x93c5fd, 0.75);
     dirLight.position.set(80, 120, 60);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
@@ -338,9 +319,8 @@ class CityBuilder {
   }
 
   update(time) {
-    // 水波輕微起伏
     if (this.waterMesh) {
-      this.waterMesh.position.y = 0.05 + Math.sin(time * 2.5) * 0.06;
+      this.waterMesh.position.y = 0.05 + Math.sin(time * 2.5) * 0.05;
     }
   }
 }

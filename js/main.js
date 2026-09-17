@@ -1,6 +1,6 @@
 /**
  * main.js
- * 遊戲主循環、Three.js 渲染管線初始化與全域生命週期協調
+ * 遊戲主循環、Three.js 渲染管線初始化與全域生命週期協調 (支援 PC 與 行動/平板端)
  */
 window.addEventListener('DOMContentLoaded', () => {
   // 1. 初始化 Web Audio 音效
@@ -28,8 +28,8 @@ window.addEventListener('DOMContentLoaded', () => {
   const controls = new FirstPersonControls(camera, renderer.domElement, audioManager, gameState);
   scene.add(controls.getObject());
 
-  // 玩家起始位置 (出生在大道旁人行道安全區)
-  controls.getObject().position.set(-45, 1.7, -40);
+  // 玩家起始位置 (出生在中央大道旁寬敞人行道安全區)
+  controls.getObject().position.set(-62, 1.7, -35);
 
   // 5. 生成 3D 都市世界
   const cityBuilder = new CityBuilder(scene);
@@ -49,11 +49,21 @@ window.addEventListener('DOMContentLoaded', () => {
   // 9. 初始化第一人稱武器與戰鬥系統
   const weaponSystem = new WeaponSystem(camera, scene, gameState, audioManager, npcSystem);
 
-  // 10. 初始化 HUD 介面
+  // 10. 綁定行動端按鈕回調
+  controls.onAttackTrigger = () => {
+    weaponSystem.performAttack();
+  };
+  controls.onInteractTrigger = () => {
+    if (itemSystem.currentNearbyItem) {
+      itemSystem.pickupItem(itemSystem.currentNearbyItem);
+    }
+  };
+
+  // 11. 初始化 HUD 介面
   const uiManager = new UIManager(gameState);
   window.uiManager = uiManager;
 
-  // 11. 介面互動事件 (開始遊戲 & 重新開始)
+  // 12. 介面互動事件 (開始遊戲 & 重新開始)
   const startBtn = document.getElementById('start-btn');
   const restartBtn = document.getElementById('restart-btn');
   const blocker = document.getElementById('blocker');
@@ -64,16 +74,23 @@ window.addEventListener('DOMContentLoaded', () => {
     audioManager.resume();
   });
 
+  // 行動端支援直接點擊開始按鈕
+  startBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    controls.lock();
+    audioManager.resume();
+  });
+
   restartBtn.addEventListener('click', () => {
     // 重置遊戲數值
     gameState.reset();
     gameOverModal.style.display = 'none';
 
     // 重設玩家位置
-    controls.getObject().position.set(-45, 1.7, -40);
+    controls.getObject().position.set(-62, 1.7, -35);
     controls.velocity.set(0, 0, 0);
 
-    // 重新鎖定滑鼠
+    // 重新鎖定滑鼠/開啟控制
     controls.lock();
     audioManager.resume();
 
@@ -87,13 +104,13 @@ window.addEventListener('DOMContentLoaded', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  // 12. 主遊戲循環 Loop
+  // 13. 主遊戲循環 Loop
   const clock = new THREE.Clock();
 
   function animate() {
     requestAnimationFrame(animate);
 
-    const delta = Math.min(clock.getDelta(), 0.1); // 避免大掉幀造成穿牆
+    const delta = Math.min(clock.getDelta(), 0.1);
     const time = clock.getElapsedTime();
 
     if (!gameState.isGameOver) {
@@ -105,7 +122,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
       const playerPos = controls.getObject().position;
       const playerYaw = controls.yawObject.rotation.y;
-      const isMoving = controls.moveForward || controls.moveBackward || controls.moveLeft || controls.moveRight;
+      const isMoving = controls.moveForward || controls.moveBackward || controls.moveLeft || controls.moveRight ||
+                       Math.abs(controls.joystickVector.x) > 0.1 || Math.abs(controls.joystickVector.z) > 0.1;
 
       // 更新武器動畫
       weaponSystem.update(delta, isMoving);
