@@ -44,7 +44,7 @@ body, html {
 
 #instructions-box {
   background: rgba(18, 26, 46, 0.92);
-  border: 1px solid rgba(0, 242, 254, 0.4);
+  border: 1px solid rgba(0, 240, 252, 0.4);
   box-shadow: 0 0 35px rgba(0, 242, 254, 0.2), inset 0 0 20px rgba(0, 242, 254, 0.05);
   border-radius: 14px;
   padding: 28px 36px;
