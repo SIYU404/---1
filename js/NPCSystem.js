@@ -11,6 +11,8 @@ class NPCSystem {
 
     this.npcs = [];
     this.maxNPCs = 46; // 大幅增加都市路人數量
+    this.crowdAttackDuration = 30;
+    this.crowdAttackUntil = 0;
 
     this.initNPCs();
   }
@@ -152,6 +154,9 @@ class NPCSystem {
   }
 
   update(delta, playerPos, camera) {
+    const now = performance.now() / 1000;
+    const crowdAttackActive = now < this.crowdAttackUntil;
+
     for (let i = this.npcs.length - 1; i >= 0; i--) {
       const npc = this.npcs[i];
       if (npc.isDead) continue;
@@ -177,7 +182,8 @@ class NPCSystem {
       }
 
       if (npc.isHostile) {
-        if (distToPlayer < 24) {
+        const triggerRange = crowdAttackActive ? 999 : 24;
+        if (distToPlayer < triggerRange) {
           npc.state = 'chase';
           npc.mesh.lookAt(playerPos.x, pos.y, playerPos.z);
 
@@ -258,6 +264,10 @@ class NPCSystem {
       npc.hp -= damage;
       npc.hitStun = 0.22;
 
+      if (npc.hp > 0 && npc.hp <= npc.maxHp * 0.3 && this.audio) {
+        this.audio.playLowHealthCry();
+      }
+
       if (npc.isHostile && npc.mesh.userData.hpFill) {
         const hpPercent = Math.max(0, npc.hp / npc.maxHp);
         npc.mesh.userData.hpFill.scale.x = hpPercent;
@@ -324,6 +334,9 @@ class NPCSystem {
         }
       }
     } else {
+      this.crowdAttackUntil = Math.max(this.crowdAttackUntil, performance.now() / 1000 + this.crowdAttackDuration);
+      this.enlistCrowdAttackers(npc.mesh.position, 5);
+
       // 誤擊路人掉落普通零食
       if (this.itemSystem && Math.random() > 0.5) {
         const dropPos = npc.mesh.position.clone();
@@ -339,6 +352,20 @@ class NPCSystem {
       if (idx !== -1) this.npcs.splice(idx, 1);
       this.spawnNPC(npc.isHostile);
     }, 4000);
+  }
+
+  enlistCrowdAttackers(centerPos, count = 5) {
+    const civilians = this.npcs
+      .filter(n => !n.isDead && !n.isHostile)
+      .sort((a, b) => a.mesh.position.distanceTo(centerPos) - b.mesh.position.distanceTo(centerPos))
+      .slice(0, count);
+
+    civilians.forEach(n => {
+      n.isHostile = true;
+      n.hp = Math.max(n.hp, 80);
+      n.maxHp = Math.max(n.maxHp, 80);
+      n.walkSpeed = Math.max(n.walkSpeed, 4.8);
+    });
   }
 
   getHostilePositions() {

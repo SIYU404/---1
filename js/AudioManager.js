@@ -299,6 +299,28 @@ class AudioManager {
     osc.stop(this.ctx.currentTime + 0.2);
   }
 
+  // 殘血痛苦聲
+  playLowHealthCry() {
+    if (!this.ctx || this.muted) return;
+    this.resume();
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(420, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(180, this.ctx.currentTime + 0.2);
+
+    gain.gain.setValueAtTime(0.22, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.2);
+  }
+
   // 死亡悲鳴
   playGameOver() {
     if (!this.ctx || this.muted) return;
